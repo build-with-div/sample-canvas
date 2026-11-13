@@ -1,6 +1,6 @@
 //! Native probe: drive a canvas animation from Div's only per-frame signal.
 //!
-//! div-gap: Div has no requestAnimationFrame. `App::on_platform_event` sees
+//! div-gap: W11 (`requestAnimationFrame`). Div has none yet. `App::on_platform_event` sees
 //! `PlatformEvent::Presented` after each present; pushing a new canvas image
 //! there makes the document dirty, which schedules the next frame. This runs
 //! for `SECONDS` (default 3), then prints the frame rate and intervals.

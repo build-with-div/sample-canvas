@@ -1,12 +1,14 @@
-//! Shared helpers for the canvas probes: an app-owned Skia raster surface
-//! shown in a Div element through the only public pixel path Div has today.
+//! Measurement scaffolding for the canvas probes: an app-owned Skia raster
+//! surface shown in a Div element through the only public pixel path Div
+//! has today.
 //!
-//! div-gap: Div has no canvas or surface API. The workaround is to draw with
-//! the app's own `skia-safe`, read the pixels back, wrap them in Div's
-//! undocumented `image/x-openui-rgba8` transport and set the result as the
-//! element's image resource. Each frame needs a new SHA-256 string, because
-//! Div caches decoded images by that string, and Div never frees a
-//! registered resource.
+//! div-gap: W1 (`HTMLCanvasElement` bitmap) and W2 (`CanvasRenderingContext2D`).
+//! This is not a canvas implementation and samples must not use it as one;
+//! see docs/design.md §9. It draws with the app's own `skia-safe`, reads the
+//! pixels back, wraps them in Div's undocumented `image/x-openui-rgba8`
+//! transport and sets the result as the element's image resource. Each frame
+//! needs a new SHA-256 string, because Div caches decoded images by that
+//! string, and Div never frees a registered resource.
 
 use div::{Document, Element, Error};
 use skia_safe::{surfaces, AlphaType, ColorSpace, ColorType, ImageInfo, Surface};

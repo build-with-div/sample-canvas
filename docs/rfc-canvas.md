@@ -1,356 +1,312 @@
-# RFC draft: Canvas (2D context and surface handoff)
+# RFC draft: the HTML canvas element (2D and WebGPU contexts)
 
-Status: draft for the Div tracks, 13 November 2026. From the canvas dogfood
-session (build-with-div/sample-canvas). Consumers: sample-canvas,
-sample-charts, and any app that draws. Requests go to the engine track
-(div-paint, div-engine, div-text, a new `div-canvas` crate) and the
-framework track (divui, div-platform). The components track has no
-required work. It follows Div's cross-track RFC form (`docs/alpha/rfcs/README.md`).
-Background, probes and measurements are in [design.md](design.md). Source
-references are to Div `565db46a`.
+Status: draft for the Div tracks, revised 13 November 2026 for the
+"port the packages, implement the platform" principle.
+
+- **From:** the canvas dogfood session (build-with-div/sample-canvas).
+- **Consumers:** ports of Konva, rough.js/Excalidraw and three.js in
+  sample-canvas; Chart.js and ECharts in sample-charts; any app that draws.
+- **Requests to:** the engine track (div-paint, div-engine, div-text, a new
+  `div-canvas` crate) and the framework track (divui, div-platform). The
+  components track has no required work.
+- **Form:** Div's cross-track RFC form (`docs/alpha/rfcs/README.md`).
+- **Background:** [design.md](design.md) has the package scan, the platform
+  table (W1–W21), probes and measurements. Source references are to Div
+  `565db46a`.
 
 ## Problem
 
-Professional desktop apps draw. Charts, editors' minimaps, paint tools,
-node graphs and 3D viewports all need pixels that the DOM does not produce.
-Div at `565db46a` has none of this:
+The popular canvas packages, listed in design.md §1, run on a small set of
+web platform features: the `<canvas>` element, `CanvasRenderingContext2D`,
+`GPUCanvasContext`, `requestAnimationFrame`, `ResizeObserver`, Pointer
+Events and `devicePixelRatio`. Div at `565db46a` implements none of them
+beyond the bare element:
 
 - **`<canvas>` paints nothing** (`div-paint/src/painter.rs:6331`). With no
   CSS size it is 300×0, not HTML's 300×150 (probe P1).
-- **There is no drawing API, Skia access, frame callback or window
-  handle.** No scale factor or resize callback either.
-- **The only way to show app pixels is a hidden image MIME type**
-  (`image/x-openui-rgba8`). Each update relayouts the element, re-records
-  the whole document, re-rasters the whole window, and permanently leaks the
-  frame (probes P2, P3 and P7).
-- **Input carries viewport coordinates only.** There are no `pointer*`
-  events from a real mouse.
+- **No `getContext`, no `requestAnimationFrame`, no `ResizeObserver`, no
+  `devicePixelRatio`.**
+- **Input is incomplete.** There are no `pointer*` events from a mouse, and
+  no `offsetX`/`offsetY`.
+- **No GPU composition.**
+- **The only way to show app pixels is a hidden image MIME type.** Each
+  update relayouts, re-records the whole document, re-rasters the whole
+  window and leaks the frame (probes P2, P3, P7).
+
+A port of any of these packages cannot draw.
 
 ## Proposal
 
-### 1. Shared foundation
+**Implement the web platform features, with web names and web semantics.**
+The Rust API is the WebIDL in snake_case:
 
-#### 1a. Animation frames (framework)
+- Members keep their web names (`fill_style`, `get_image_data`).
+- Behavior follows the spec and Chromium: CSS color strings parse with
+  Div's CSS parser, non-finite arguments are ignored, and state defaults are
+  the spec's.
+- Typed conveniences are added on top, never instead: a `Color` where a CSS
+  string is accepted, enums alongside the string keywords.
+
+### 1. `HTMLCanvasElement` (W1, W9, W10; engine + framework)
 
 ```rust
-// divui::frame
-pub fn request_animation_frame(callback: impl FnOnce(f64) + 'static) -> FrameCallbackId;
-pub fn cancel_animation_frame(id: FrameCallbackId);
+/// A typed handle to a <canvas> element (Element derefs to it by tag).
+pub struct HtmlCanvasElement { /* wraps Element */ }
+impl HtmlCanvasElement {
+    pub fn create(document: &Document) -> Result<Self, Error>;     // document.createElement("canvas")
+    pub fn from_element(element: Element) -> Option<Self>;
+    pub fn width(&self) -> u32;  pub fn set_width(&self, w: u32);   // the width attribute (default 300)
+    pub fn height(&self) -> u32; pub fn set_height(&self, h: u32);  // the height attribute (default 150)
+    pub fn get_context_2d(&self, settings: CanvasRenderingContext2dSettings)
+        -> Result<Option<CanvasRenderingContext2d>, Error>;         // getContext("2d", { alpha, willReadFrequently, colorSpace })
+    pub fn get_context_webgpu(&self) -> Result<Option<GpuCanvasContext>, Error>; // getContext("webgpu")
+    pub fn to_data_url(&self, mime: &str, quality: Option<f64>) -> Result<String, Error>;
+    pub fn to_blob(&self, mime: &str, quality: Option<f64>) -> Result<Vec<u8>, Error>;
+}
+```
 
-/// Send handle that asks the window to produce a frame (wraps LoopWaker).
-#[derive(Clone)]
-pub struct FrameRequester { /* Send + Sync */ }
-impl FrameRequester { pub fn request(&self); }
-impl Document { pub fn frame_requester(&self) -> FrameRequester; }
+- **Spec semantics.** `getContext` returns `None` (HTML: `null`) when the
+  canvas already has a context of another kind.
+- **Sizing.** The bitmap is `width`×`height`. The element's intrinsic size
+  is the bitmap size, 300×150 by default. CSS scaling follows `object-fit`
+  (default `fill`) and `image-rendering`.
+- **Detached and stacked canvases.** A canvas outside the document keeps a
+  working context, which packages use as scratch canvases. Stacked canvases
+  composite in paint order.
+- **`view!`.** It accepts `<canvas width=… height=…>` already. A typed
+  handle needs a node-ref mechanism in `view!`, which sample-git also needs:
+  `<canvas node_ref=canvas_ref …>` with
+  `canvas_ref: NodeRef<HtmlCanvasElement>`.
+
+### 2. `CanvasRenderingContext2D` (W2–W8; engine, crate `div-canvas`)
+
+The members of HTML's `CanvasRenderingContext2D` and its mixins,
+implemented by porting Blink's `third_party/blink/renderer/modules/canvas/canvas2d`
+onto Div's Skia with Chromium's paint flags:
+
+```rust
+#[derive(Clone)] // a handle; !Send, bound to its canvas
+pub struct CanvasRenderingContext2d { /* … */ }
+impl CanvasRenderingContext2d {
+    pub fn canvas(&self) -> HtmlCanvasElement;
+    // CanvasState
+    pub fn save(&self); pub fn restore(&self); pub fn reset(&self); pub fn is_context_lost(&self) -> bool;
+    // CanvasTransform
+    pub fn scale(&self, x: f64, y: f64); pub fn rotate(&self, angle: f64); pub fn translate(&self, x: f64, y: f64);
+    pub fn transform(&self, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64);
+    pub fn set_transform(&self, a: f64, b: f64, c: f64, d: f64, e: f64, f: f64);
+    pub fn set_transform_matrix(&self, m: &DomMatrix2dInit); pub fn get_transform(&self) -> DomMatrix;
+    pub fn reset_transform(&self);
+    // CanvasCompositing
+    pub fn global_alpha(&self) -> f64; pub fn set_global_alpha(&self, a: f64);
+    pub fn global_composite_operation(&self) -> String;
+    pub fn set_global_composite_operation(&self, op: &str);         // ignored if invalid, as specified
+    // CanvasImageSmoothing
+    pub fn set_image_smoothing_enabled(&self, on: bool);
+    pub fn set_image_smoothing_quality(&self, q: ImageSmoothingQuality);
+    // CanvasFillStrokeStyles
+    pub fn set_fill_style(&self, style: impl Into<CanvasStyle>);    // &str (CSS color) | Color | CanvasGradient | CanvasPattern
+    pub fn set_stroke_style(&self, style: impl Into<CanvasStyle>);
+    pub fn fill_style(&self) -> CanvasStyle; pub fn stroke_style(&self) -> CanvasStyle;
+    pub fn create_linear_gradient(&self, x0: f64, y0: f64, x1: f64, y1: f64) -> CanvasGradient;
+    pub fn create_radial_gradient(&self, x0: f64, y0: f64, r0: f64, x1: f64, y1: f64, r1: f64) -> Result<CanvasGradient, DomException>;
+    pub fn create_conic_gradient(&self, start_angle: f64, x: f64, y: f64) -> CanvasGradient;
+    pub fn create_pattern(&self, image: CanvasImageSource, repetition: &str) -> Result<Option<CanvasPattern>, DomException>;
+    // CanvasShadowStyles
+    pub fn set_shadow_offset_x(&self, v: f64); pub fn set_shadow_offset_y(&self, v: f64);
+    pub fn set_shadow_blur(&self, v: f64); pub fn set_shadow_color(&self, css: impl Into<CanvasColor>);
+    // CanvasFilters (W20, later)
+    pub fn set_filter(&self, css: &str);
+    // CanvasRect
+    pub fn clear_rect(&self, x: f64, y: f64, w: f64, h: f64);
+    pub fn fill_rect(&self, x: f64, y: f64, w: f64, h: f64);
+    pub fn stroke_rect(&self, x: f64, y: f64, w: f64, h: f64);
+    // CanvasDrawPath
+    pub fn begin_path(&self);
+    pub fn fill(&self, rule: CanvasFillRule); pub fn fill_path(&self, path: &Path2d, rule: CanvasFillRule);
+    pub fn stroke(&self); pub fn stroke_path(&self, path: &Path2d);
+    pub fn clip(&self, rule: CanvasFillRule); pub fn clip_path(&self, path: &Path2d, rule: CanvasFillRule);
+    pub fn is_point_in_path(&self, x: f64, y: f64, rule: CanvasFillRule) -> bool;
+    pub fn is_point_in_stroke(&self, x: f64, y: f64) -> bool;
+    // CanvasText
+    pub fn fill_text(&self, text: &str, x: f64, y: f64, max_width: Option<f64>);
+    pub fn stroke_text(&self, text: &str, x: f64, y: f64, max_width: Option<f64>);
+    pub fn measure_text(&self, text: &str) -> TextMetrics;          // all 12 metrics, from div-text
+    // CanvasTextDrawingStyles
+    pub fn set_font(&self, css_font: &str);                          // CSS font shorthand; invalid → ignored
+    pub fn set_text_align(&self, v: CanvasTextAlign); pub fn set_text_baseline(&self, v: CanvasTextBaseline);
+    pub fn set_direction(&self, v: CanvasDirection);
+    pub fn set_letter_spacing(&self, css: &str); pub fn set_word_spacing(&self, css: &str);
+    pub fn set_font_kerning(&self, v: CanvasFontKerning);
+    // CanvasDrawImage (W6)
+    pub fn draw_image(&self, image: CanvasImageSource, dx: f64, dy: f64);
+    pub fn draw_image_scaled(&self, image: CanvasImageSource, dx: f64, dy: f64, dw: f64, dh: f64);
+    pub fn draw_image_sub(&self, image: CanvasImageSource, sx: f64, sy: f64, sw: f64, sh: f64,
+                          dx: f64, dy: f64, dw: f64, dh: f64);
+    // CanvasImageData (W7)
+    pub fn create_image_data(&self, w: u32, h: u32) -> ImageData;
+    pub fn get_image_data(&self, x: i32, y: i32, w: u32, h: u32) -> Result<ImageData, DomException>;
+    pub fn put_image_data(&self, data: &ImageData, dx: i32, dy: i32);
+    // CanvasPathDrawingStyles
+    pub fn set_line_width(&self, v: f64); pub fn set_line_cap(&self, v: CanvasLineCap);
+    pub fn set_line_join(&self, v: CanvasLineJoin); pub fn set_miter_limit(&self, v: f64);
+    pub fn set_line_dash(&self, segments: &[f64]); pub fn get_line_dash(&self) -> Vec<f64>;
+    pub fn set_line_dash_offset(&self, v: f64);
+    // CanvasPath (also on Path2d, W8)
+    pub fn close_path(&self); pub fn move_to(&self, x: f64, y: f64); pub fn line_to(&self, x: f64, y: f64);
+    pub fn quadratic_curve_to(&self, cpx: f64, cpy: f64, x: f64, y: f64);
+    pub fn bezier_curve_to(&self, c1x: f64, c1y: f64, c2x: f64, c2y: f64, x: f64, y: f64);
+    pub fn arc_to(&self, x1: f64, y1: f64, x2: f64, y2: f64, r: f64) -> Result<(), DomException>;
+    pub fn rect(&self, x: f64, y: f64, w: f64, h: f64);
+    pub fn round_rect(&self, x: f64, y: f64, w: f64, h: f64, radii: &[RoundRectRadius]) -> Result<(), DomException>;
+    pub fn arc(&self, x: f64, y: f64, r: f64, start: f64, end: f64, ccw: bool) -> Result<(), DomException>;
+    pub fn ellipse(&self, x: f64, y: f64, rx: f64, ry: f64, rotation: f64, start: f64, end: f64, ccw: bool)
+        -> Result<(), DomException>;
+}
+pub struct Path2d { /* … */ }  // new(), from_svg_path_data(&str), add_path(&Path2d, Option<&DomMatrix2dInit>) + CanvasPath
+pub enum CanvasImageSource<'a> { Image(&'a Element), Canvas(&'a HtmlCanvasElement), ImageBitmap(&'a ImageBitmap) /* W19 */ }
+```
+
+**Semantics.**
+
+- Results and `DomException` appear exactly where WebIDL throws, for
+  example a negative radius in `arc`. Everywhere else, invalid input is
+  ignored, as specified.
+- Drawing goes immediately to a CPU raster bitmap: Chromium's unaccelerated
+  canvas, which is what pinned Chromium runs with `--disable-gpu`.
+- The element shows the bitmap committed at the end of the current task or
+  frame. `getImageData` sees all draws so far.
+
+### 3. Around the canvas (framework, with engine where noted)
+
+```rust
+// W11: HTML "run the animation frame callbacks", inside Document::begin_frame,
+// after pending events and before style/layout/paint.
+pub fn request_animation_frame(callback: impl FnOnce(f64) + 'static) -> u64;
+pub fn cancel_animation_frame(handle: u64);
+
+// W12
+impl Window { pub fn device_pixel_ratio(&self) -> f64; }
+pub fn match_media(query: &str) -> MediaQueryList;   // "(resolution: 2dppx)" with change events
+
+// W13: engine computes after layout; framework delivers before paint.
+pub struct ResizeObserver { /* … */ }
+impl ResizeObserver {
+    pub fn new(callback: impl Fn(&[ResizeObserverEntry], &ResizeObserver) + 'static) -> Self;
+    pub fn observe(&self, target: &Element, options: ResizeObserverOptions); // box: content-box | border-box | device-pixel-content-box
+    pub fn unobserve(&self, target: &Element); pub fn disconnect(&self);
+}
+
+// W14: PointerEvent fields on Event, and native mouse input producing
+// pointer* events before the compatibility mouse* events, as Chromium does.
+impl Event {
+    pub fn offset_x(&self) -> f64; pub fn offset_y(&self) -> f64;   // from the hit test's world_to_local
+    pub fn buttons(&self) -> u16; pub fn pointer_type(&self) -> &str; // "mouse" | "pen" | "touch"
+    pub fn pressure(&self) -> f32; pub fn tilt_x(&self) -> i32; pub fn tilt_y(&self) -> i32;
+}
+// plus dispatch of "dblclick", "contextmenu", "gotpointercapture"/"lostpointercapture".
+
+// W15
+pub struct FontFace { /* new(family, source, descriptors), load() -> future, status() */ }
+impl Document { pub fn fonts(&self) -> FontFaceSet; } // add(), ready() -> future, check()
 
 // testing
-impl TestApp { pub fn advance_frame(&mut self, ms: f64); }
+impl TestApp { pub fn advance_frame(&mut self, ms: f64); } // runs rAF callbacks, then renders
 ```
 
-- **Order.** Callbacks run in `Document::begin_frame`: after pending
-  events, before `advance_time` and `update_all`. A callback registered
-  during a frame runs in the next frame, as in HTML.
-- **Scheduling.** A pending callback counts as "animating"
-  (`PlatformApplication::is_animating`), so the loop keeps producing frames
-  only while one is pending.
+### 4. `GPUCanvasContext` (W17, W18; framework platform + engine scene)
 
-#### 1b. Element-local pointer data (engine E4 + framework F3)
+The WebGPU API in Rust is wgpu; it is the implementation behind Firefox's
+WebGPU. Div exposes `navigator.gpu` from the wgpu instance its presenter
+uses, and the canvas context in WebGPU's shape:
 
 ```rust
-impl Event {
-    /// Position in the target's border-box coordinates, inverting its full
-    /// transform (from the hit test's world_to_local), like MouseEvent.offsetX.
-    pub fn offset_x(&self) -> f32;
-    pub fn offset_y(&self) -> f32;
-    /// Pressed buttons as a bitmask (1 primary, 2 secondary, 4 auxiliary).
-    pub fn buttons(&self) -> u16;
-    pub fn pointer_type(&self) -> PointerType; // Mouse, Pen, Touch
-    pub fn pressure(&self) -> f32;             // 0.5 while a mouse button is down
+pub fn gpu() -> Gpu;                                          // navigator.gpu
+impl Gpu {
+    pub async fn request_adapter(&self, options: &wgpu::RequestAdapterOptions<'_, '_>) -> Option<wgpu::Adapter>;
+    pub fn get_preferred_canvas_format(&self) -> wgpu::TextureFormat;
 }
-```
-
-- **Native mouse input** dispatches `pointerdown`/`pointermove`/`pointerup`
-  before the compatibility `mouse*` events, as Chromium does.
-- **Pointer capture** retargets moves outside the element to it.
-- **New events:** `contextmenu` and `dblclick`.
-
-#### 1c. Canvas size and DPI (framework F2)
-
-```rust
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CanvasSize {
-    pub css: SizeF,      // content box, CSS px
-    pub device: SizeU,   // devicePixelContentBoxSize
-    pub scale: f32,      // device scale factor
+pub struct GpuCanvasContext { /* … */ }
+pub struct GpuCanvasConfiguration {
+    pub device: wgpu::Device,
+    pub format: wgpu::TextureFormat,
+    pub usage: wgpu::TextureUsages,           // default RENDER_ATTACHMENT
+    pub view_formats: Vec<wgpu::TextureFormat>,
+    pub alpha_mode: GpuCanvasAlphaMode,       // Opaque | Premultiplied
 }
-impl CanvasElement {
-    /// Called after layout and before paint when `CanvasSize` changes.
-    pub fn on_resize(&self, f: impl Fn(CanvasSize) + 'static) -> Result<(), Error>;
+impl GpuCanvasContext {
+    pub fn canvas(&self) -> HtmlCanvasElement;
+    pub fn configure(&self, configuration: GpuCanvasConfiguration) -> Result<(), DomException>;
+    pub fn unconfigure(&self);
+    pub fn get_current_texture(&self) -> Result<wgpu::Texture, DomException>; // the texture for this frame
 }
-```
-
-#### 1d. Surface slots (engine E1, E2)
-
-This is internal and not public API. Each canvas element owns a slot, and
-paint records the slot at its content box. A slot's contents, either an
-`SkImage` or an external texture, are versioned outside the document
-lifecycle.
-
-- **Contents-only updates** request a composite-only frame, with damage
-  equal to the slot's device rect.
-- **E1 (first step).** Show an in-memory `SkImage` in a replaced element
-  with `InvalidationClass::Paint`, not `Intrinsic`, and with no resource
-  registry entry.
-- **E2.** Slot geometry in `SceneSnapshot`, the versioned slot table, tile
-  reuse in `SoftwareCompositor`.
-
-### 2. Route B: 2D context (engine E3 in `div-canvas`, framework F2 in `divui::canvas`)
-
-```rust
-pub struct CanvasElement { /* wraps an Element with tag canvas */ }
-impl CanvasElement {
-    pub fn create(document: &Document) -> Result<Self, Error>;
-    pub fn from_element(element: Element) -> Option<Self>;
-    pub fn element(&self) -> &Element;
-    /// Bitmap size, like the width/height attributes; ignored when the
-    /// resolution is `Device`.
-    pub fn set_bitmap_size(&self, width: u32, height: u32) -> Result<(), Error>;
-    pub fn set_resolution(&self, resolution: CanvasResolution) -> Result<(), Error>;
-    pub fn context_2d(&self, options: Context2dOptions) -> Result<Context2dHandle, Error>;
-    pub fn surface(&self, options: SurfaceOptions) -> Result<Surface, Error>; // route A
-}
-
-pub enum CanvasResolution {
-    /// HTML semantics: bitmap = width x height, scaled to the CSS box.
-    Bitmap,
-    /// Bitmap tracks devicePixelContentBoxSize; the context is pre-scaled so
-    /// drawing is in CSS px and crisp at every scale factor.
-    Device,
-}
-
-pub struct Context2dOptions { pub alpha: bool, pub will_read_frequently: bool }
-
-/// Cloneable, !Send handle bound to the element; `with` borrows the context.
-#[derive(Clone)]
-pub struct Context2dHandle { /* … */ }
-impl Context2dHandle { pub fn with<R>(&self, f: impl FnOnce(&mut Context2d) -> R) -> R; }
-
-/// CanvasRenderingContext2D, typed. Method names follow HTML in snake_case.
-pub struct Context2d { /* Skia raster surface + Blink-ported state */ }
-impl Context2d {
-    // state
-    pub fn save(&mut self); pub fn restore(&mut self); pub fn reset(&mut self);
-    // transforms
-    pub fn translate(&mut self, x: f32, y: f32); pub fn rotate(&mut self, radians: f32);
-    pub fn scale(&mut self, x: f32, y: f32);
-    pub fn transform(&mut self, m: Matrix2d); pub fn set_transform(&mut self, m: Matrix2d);
-    pub fn get_transform(&self) -> Matrix2d; pub fn reset_transform(&mut self);
-    // compositing
-    pub fn set_global_alpha(&mut self, a: f32);
-    pub fn set_global_composite_operation(&mut self, op: CompositeOperation);
-    // styles
-    pub fn set_fill_style(&mut self, style: impl Into<PaintStyle>);   // Color | Gradient | Pattern
-    pub fn set_stroke_style(&mut self, style: impl Into<PaintStyle>);
-    pub fn create_linear_gradient(&self, x0: f32, y0: f32, x1: f32, y1: f32) -> Gradient;
-    pub fn create_radial_gradient(&self, x0: f32, y0: f32, r0: f32, x1: f32, y1: f32, r1: f32) -> Gradient;
-    pub fn create_conic_gradient(&self, angle: f32, x: f32, y: f32) -> Gradient;
-    pub fn create_pattern(&self, image: &CanvasImageSource, repetition: Repetition) -> Pattern;
-    // line styles
-    pub fn set_line_width(&mut self, w: f32); pub fn set_line_cap(&mut self, c: LineCap);
-    pub fn set_line_join(&mut self, j: LineJoin); pub fn set_miter_limit(&mut self, m: f32);
-    pub fn set_line_dash(&mut self, segments: &[f32]); pub fn set_line_dash_offset(&mut self, o: f32);
-    // shadows
-    pub fn set_shadow_color(&mut self, c: Color); pub fn set_shadow_blur(&mut self, b: f32);
-    pub fn set_shadow_offset(&mut self, x: f32, y: f32);
-    // rects and paths
-    pub fn clear_rect(&mut self, x: f32, y: f32, w: f32, h: f32);
-    pub fn fill_rect(&mut self, x: f32, y: f32, w: f32, h: f32);
-    pub fn stroke_rect(&mut self, x: f32, y: f32, w: f32, h: f32);
-    pub fn begin_path(&mut self); pub fn close_path(&mut self);
-    pub fn move_to(&mut self, x: f32, y: f32); pub fn line_to(&mut self, x: f32, y: f32);
-    pub fn quadratic_curve_to(&mut self, cpx: f32, cpy: f32, x: f32, y: f32);
-    pub fn bezier_curve_to(&mut self, c1x: f32, c1y: f32, c2x: f32, c2y: f32, x: f32, y: f32);
-    pub fn arc(&mut self, x: f32, y: f32, r: f32, start: f32, end: f32, ccw: bool);
-    pub fn arc_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, r: f32);
-    pub fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32, rot: f32, start: f32, end: f32, ccw: bool);
-    pub fn rect(&mut self, x: f32, y: f32, w: f32, h: f32);
-    pub fn round_rect(&mut self, x: f32, y: f32, w: f32, h: f32, radii: &[CornerRadius]);
-    pub fn fill(&mut self, rule: FillRule); pub fn stroke(&mut self);
-    pub fn clip(&mut self, rule: FillRule);
-    pub fn fill_path(&mut self, path: &Path2d, rule: FillRule);
-    pub fn stroke_path(&mut self, path: &Path2d); pub fn clip_path(&mut self, path: &Path2d, rule: FillRule);
-    pub fn is_point_in_path(&self, x: f32, y: f32, rule: FillRule) -> bool;
-    pub fn is_point_in_stroke(&self, x: f32, y: f32) -> bool;
-    // images
-    pub fn draw_image(&mut self, image: &CanvasImageSource, dx: f32, dy: f32);
-    pub fn draw_image_rect(&mut self, image: &CanvasImageSource, src: RectF, dst: RectF);
-    pub fn set_image_smoothing(&mut self, enabled: bool, quality: SmoothingQuality);
-    // text (div-text: same fonts, shaping and registered app fonts as the DOM)
-    pub fn set_font(&mut self, css_font: &str) -> Result<(), FontParseError>;
-    pub fn set_text_align(&mut self, a: TextAlign); pub fn set_text_baseline(&mut self, b: TextBaseline);
-    pub fn set_direction(&mut self, d: TextDirection);
-    pub fn set_letter_spacing(&mut self, px: f32); pub fn set_word_spacing(&mut self, px: f32);
-    pub fn fill_text(&mut self, text: &str, x: f32, y: f32, max_width: Option<f32>);
-    pub fn stroke_text(&mut self, text: &str, x: f32, y: f32, max_width: Option<f32>);
-    pub fn measure_text(&self, text: &str) -> TextMetrics;
-    // pixels (unpremultiplied sRGB RGBA8, as ImageData)
-    pub fn get_image_data(&self, x: i32, y: i32, w: u32, h: u32) -> ImageData;
-    pub fn put_image_data(&mut self, data: &ImageData, dx: i32, dy: i32);
-    pub fn create_image_data(&self, w: u32, h: u32) -> ImageData;
-}
-
-/// OffscreenCanvas: the same context with no element. Send, so it can draw
-/// on a worker thread; show it by transferring an image to an element.
-pub struct OffscreenCanvas2d { /* … */ }
-impl OffscreenCanvas2d {
-    pub fn new(width: u32, height: u32) -> Self;
-    pub fn context(&mut self) -> &mut Context2d;
-    pub fn transfer_to_image(&mut self) -> CanvasImage; // Send, cheap (copy-on-write)
-}
-impl CanvasElement { pub fn show_image(&self, image: CanvasImage) -> Result<(), Error>; }
-
-pub enum CanvasImageSource<'a> {
-    Image(ImageResourceId), Canvas(&'a CanvasElement), Offscreen(&'a OffscreenCanvas2d),
-    CanvasImage(&'a CanvasImage), ImageData(&'a ImageData),
+impl wgpu::Queue /* extension trait */ {
+    fn copy_external_image_to_texture(&self, source: GpuCopyExternalImageSourceInfo, dest: …, size: …); // W18
 }
 ```
 
 **Semantics.**
 
-- **Port, not reinvention.** The implementation ports Blink's
-  `modules/canvas/canvas2d` onto Skia. That covers
-  arc/ellipse construction, dash phase, shadow blur, composite-op mapping,
-  image smoothing and text metrics.
-- **Non-finite arguments are ignored, as in HTML.** No `Result` on drawing
-  calls.
-- **Typed values replace strings,** for example `CompositeOperation` and
-  `LineCap`. Only `set_font` parses a CSS string, because fonts are CSS.
-- **Drawing is immediate** into a CPU raster surface. The element shows a
-  committed snapshot at the next frame, and readback sees every draw so far.
+- **Frame model.** As in WebGPU, the texture from `get_current_texture` is
+  presented when the current frame's tasks finish. Div composites it at the
+  canvas's slot, with clip, transform and opacity.
+  - `alphaMode: opaque` ignores alpha.
+  - `premultiplied` composites under Div content with a hole punch.
+  - Translucent canvases over Div content below them are limited until
+    layer partitioning exists (design.md risk R3).
+- **Shared device.** Adapters and devices come from Div's own instance, so
+  the compositor samples canvas textures on the same device, with no
+  cross-API interop. This departs from browsers' per-page devices; see
+  design.md risk R2.
+- **Software presentation** reads canvas textures back. That is slow, and
+  it is reported.
 
-**`view!` component** (framework):
+### 5. Internal: canvas slots (engine)
 
-```rust
-#[component]
-pub fn Canvas(
-    resolution: Option<CanvasResolution>,
-    options: Option<Context2dOptions>,
-    /// Effect: re-runs when signals it reads or the canvas size change.
-    draw: impl Fn(&mut Context2d, CanvasSize) + 'static,
-) -> ViewNode;
-```
+This is not public API. Paint records a slot at each canvas's content box.
+Canvas contents (a 2D bitmap or a GPU texture) are versioned outside the
+document lifecycle:
 
-### 3. Route A: surface handoff (framework F4 + engine E5)
+- A content change requests a frame whose damage is the canvas's device
+  rect, with no relayout and no re-record.
+- The CPU compositor re-rasters only the tiles under that rect.
+- The wgpu presenter redraws the quad.
 
-```rust
-pub struct SurfaceOptions {
-    pub backend: SurfaceBackend, // Cpu | PreferGpu | Gpu
-    pub alpha: bool,
-    pub buffers: u8,             // 2 or 3
-}
-pub struct Surface { /* element-bound, !Send */ }
-impl Surface {
-    pub fn producer(&self) -> SurfaceProducer;  // Send
-    pub fn backend(&self) -> ActiveSurfaceBackend; // what was negotiated
-}
-pub struct SurfaceProducer { /* Send */ }
-impl SurfaceProducer {
-    /// Blocks until a buffer is free; sized to the latest CanvasSize::device.
-    pub fn next_frame(&mut self) -> SurfaceFrame<'_>;
-}
-pub struct SurfaceFrame<'a> { /* … */ }
-impl SurfaceFrame<'_> {
-    pub fn size(&self) -> SizeU;
-    pub fn target(&mut self) -> SurfaceTarget<'_>;
-    /// Hands the buffer to Div and requests a composite-only frame.
-    pub fn present(self);
-}
-#[non_exhaustive]
-pub enum SurfaceTarget<'a> {
-    /// Premultiplied RGBA8 rows in a Div-owned buffer.
-    Cpu { pixels: &'a mut [u8], stride: usize },
-    /// Windows: a D3D11 texture shared as an NT handle, with a keyed mutex.
-    D3D11Shared { handle: isize, format: SurfaceFormat, key: u64 },
-    /// Linux: dma-buf planes plus a sync file to signal on completion.
-    DmaBuf { planes: Vec<DmaBufPlane>, modifier: u64, fourcc: u32 },
-}
-```
-
-**Composition.**
-
-- **Underlay with a hole punch.** Div rasters its frame with the slot
-  region transparent and composites it over the external texture. Div
-  content painted above the canvas, such as popovers, stays above it.
-  Clip, scroll and transform come from the slot geometry in the scene.
-- **Software presentation** negotiates `Cpu`.
-- **Translucent surfaces over Div content** need three-layer composition.
-  That is out of scope here (design.md R3).
-
-**Escape hatch (framework F5, F6).**
-
-```rust
-impl WindowHandle {
-    pub fn scale_factor(&self) -> f64;
-    pub fn inner_size(&self) -> SizeU;
-}
-impl raw_window_handle::HasWindowHandle for WindowHandle { … }
-impl raw_window_handle::HasDisplayHandle for WindowHandle { … }
-
-/// A native child window kept at the element's device rect. Div content
-/// cannot draw over it; input goes to it, not to Div.
-pub fn native_child_surface(element: &Element) -> Result<NativeChildSurface, Error>;
-```
-
-### 4. Raw Skia (optional, behind a feature)
-
-```rust
-#[cfg(feature = "unstable-skia")]
-impl Context2d { pub fn with_skia_canvas<R>(&mut self, f: impl FnOnce(&skia_safe::Canvas) -> R) -> R; }
-```
-
-- **Why.** Apps that already draw with Skia can mix it with the context's
-  state.
-- **Why behind a feature.** It ties divui's API to skia-safe's version.
-- **Not a paint callback.** It runs outside paint, on the context's
-  surface.
+This is what lets canvas animation run without re-rendering the window.
+Probe P7 measured 25–29 ms per frame today.
 
 ## Affected tracks
 
 | Track | Work (size) |
 | --- | --- |
-| Engine | E1 paint-only in-memory replaced image (S); E2 surface slots and composite-only frames (M/L); E3 `div-canvas` Blink port (L: E3a M, E3b M, E3c S/M, E3d M, E3e S, E3f M, E3g L later); E4 local hit coordinates (S); E5 underlay/hole-punch slot geometry (M); E6 `<canvas>` fallback content not painted, exposed to accessibility (S); E7 image resource eviction (S); E8 `<canvas>` default 300×150 intrinsic size (S). |
-| Framework | F1 animation frames and `FrameRequester` (S/M); F2 `divui::canvas` element, component and resize (M); F3 pointer events (M); F4 GL presenter alpha frame, composite-only frames, texture import (L); F5 window info and raw-window-handle (S); F6 native child surface (M, Wayland L). |
-| Components | None required. sample-charts may propose chart components on top of `Canvas`. |
+| Engine | W1 element sizing and bitmap display (S); W2+W3 core context and styles, Blink port (L); W4 shadows (S/M); W5 text through div-text (M); W6 `drawImage` (M); W7 image data (S); W8 `Path2D` and point-in-path (M); W10 detached and stacked canvases (S); W13 resize observations after layout (half of M); W16 fallback content (S); W20 filters, layers, reset, color (L, later); canvas slots and canvas-only frames (M/L); W17 scene geometry for GPU canvases (M). |
+| Framework | W9 `toDataURL`/`toBlob` (S); W11 `requestAnimationFrame` and `advance_frame` (S/M); W12 `devicePixelRatio` and `matchMedia` (S); W13 `ResizeObserver` delivery (half of M); W14 Pointer Events, `dblclick`, `contextmenu` (M); W15 `FontFace` and `document.fonts` (S/M); W17 `navigator.gpu`, `GPUCanvasContext` and a wgpu presenter (L); W18 `copyExternalImageToTexture` (S); W19 `OffscreenCanvas` and `createImageBitmap` (M, with engine); W21 WebGL2 (XL, later); a `view!` node ref (S). |
+| Components | None required. |
 
 ## Migration
 
-Every step is additive, so `main` stays green and each step has its own
-tests. The order:
+Every step is additive, so `main` stays green, and each lands with its
+tests. Nothing changes existing rendering: a document without a canvas
+context records the same picture as before.
 
-1. **F1 animation frames, then E1 paint-only replaced image.** These are
-   independent and both small.
-   - Tests: headless rAF ordering, and no relayout on an image swap (layout
-     count from engine stats).
-2. **F2 `divui::canvas` on E1.**
-   - At this point `Context2d` can be a thin first slice: E3a only.
-   - Its fidelity tests start with WPT M1's core bucket, through the
-     generator in design.md §7.
-3. **E3 slices**, each with its WPT bucket and an exact-match count against
-   pinned Chromium. Counts are recorded per slice, never as a full-census
-   claim.
-4. **E4 + F3 pointer data.**
-   - Tests: offset under rotate/scale, and capture retargeting.
-5. **E2 surface slots.**
-   - Tests: a slot-only change re-rasters only intersecting tiles, and its
-     pixels match a full render. This is an exactness gate: slot frames must
-     equal the full re-record.
-6. **F5 window info.**
-7. **F4 + E5 GPU surfaces.**
-   - Windows first (D3D11 interop), with capability fallback and a CI smoke
-     test on hosted runners in software mode.
-   - Linux dma-buf follows.
-8. **F6 native child surface.** Only if a sample needs it.
-
-Nothing in this RFC changes existing rendering. A document without a
-`<canvas>` that has a context or surface records the same picture as
-before.
+1. **W1, W11, W12.**
+   - Tests: canvas sizing against Chromium census pages, and rAF ordering
+     headless.
+2. **W2+W3, in slices.** Each slice reports two numbers: WPT assertions
+   passing, and exact matches against pinned Chromium.
+   - Core paths, fill and stroke first (431 WPT tests).
+   - Line styles and dashes next.
+   - Then styles: gradients and patterns.
+3. **Canvas slots.**
+   - Gate: a canvas-only frame equals a full re-record, pixel for pixel.
+4. **W14, W13.**
+   - Tests: `offsetX` under rotate and scale, pointer capture retargeting,
+     and resize observations at device scale 1 and 2.
+5. **W5, W7, W4, W8, W6**, each with its WPT bucket. Package call-trace
+   replays (design.md §7.2) start as soon as a package's members exist.
+6. **W9, W10, W15, W16.**
+7. **W17, W18**, with the wgpu presenter behind `BackendPreference` until
+   it passes the CPU presenter's pixel tests. Then the WebGPU CTS subset
+   and the composition comparison (design.md §7.3).
+8. **W19, W20**, then W21 if the WebGL-only paths of three.js and Babylon
+   are still needed.
