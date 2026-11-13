@@ -1,4 +1,4 @@
-//! What Div's public API allows for canvas today (Div 565db46a).
+//! What Div's public API allows for canvas today (Div 92ea25a0; first written at 565db46a).
 //!
 //! Each probe asserts the behavior observed, so a Div change that alters it
 //! fails here and the finding in docs/design.md gets revisited. Run with
