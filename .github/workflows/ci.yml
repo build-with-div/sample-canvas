@@ -44,6 +44,8 @@ jobs:
     steps:
       - name: Enable long paths before checkout
         if: runner.os == 'Windows'
+        # docs/probes does not exist until checkout.
+        working-directory: ${{ runner.temp }}
         run: git config --global core.longpaths true
 
       - uses: actions/checkout@v6
