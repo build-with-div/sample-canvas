@@ -1,0 +1,1559 @@
+{
+ "groups": [
+  {
+   "name": "seeded",
+   "mathRandomSeed": 1,
+   "config": null,
+   "calls": [
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 2
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      310,
+      220
+     ],
+     "options": {
+      "seed": 3
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      700,
+      400
+     ],
+     "options": {
+      "seed": 4
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      12,
+      11
+     ],
+     "options": {
+      "seed": 5
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 6,
+      "roughness": 0
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 7,
+      "bowing": 6,
+      "roughness": 2.5
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 8,
+      "preserveVertices": true
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 9,
+      "disableMultiStroke": true
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 10,
+      "maxRandomnessOffset": 0
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 11
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 12,
+      "fill": "red",
+      "fillStyle": "hachure"
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 13,
+      "fill": "red",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 14,
+      "fill": "red",
+      "fillStyle": "zigzag"
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      200,
+      100
+     ],
+     "options": {
+      "seed": 15,
+      "fill": "red",
+      "fillStyle": "cross-hatch"
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 16,
+      "fill": "red",
+      "fillStyle": "dots",
+      "hachureGap": 10
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 17,
+      "fill": "red",
+      "fillStyle": "dashed",
+      "hachureGap": 10
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 18,
+      "fill": "red",
+      "fillStyle": "zigzag-line",
+      "hachureGap": 10
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 19,
+      "fill": "#0a0",
+      "hachureAngle": 0
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 20,
+      "fill": "#0a0",
+      "hachureAngle": 60,
+      "hachureGap": 8
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 21,
+      "fill": "#0a0",
+      "hachureGap": 0.05
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 22,
+      "fill": "#0a0",
+      "strokeWidth": 3,
+      "fillWeight": 2
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 23,
+      "fill": "#0a0",
+      "roughness": 0
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 24,
+      "fill": "#0a0",
+      "roughness": 0.5
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 25,
+      "fill": "#0a0",
+      "disableMultiStrokeFill": true
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 26,
+      "fill": "#0a0",
+      "stroke": "none"
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 27,
+      "fill": "#0a0",
+      "fillStyle": "dashed",
+      "dashOffset": 5,
+      "dashGap": 3,
+      "hachureGap": 12
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 28,
+      "fill": "#0a0",
+      "fillStyle": "zigzag-line",
+      "zigzagOffset": 4,
+      "hachureGap": 12
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      20,
+      30,
+      160,
+      90
+     ],
+     "options": {
+      "seed": 29,
+      "fill": "#0a0",
+      "fillStyle": "unknown-style"
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      200,
+      120
+     ],
+     "options": {
+      "seed": 30
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      200,
+      120
+     ],
+     "options": {
+      "seed": 31,
+      "fill": "blue",
+      "fillStyle": "hachure"
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      200,
+      120
+     ],
+     "options": {
+      "seed": 32,
+      "fill": "blue",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      200,
+      120
+     ],
+     "options": {
+      "seed": 33,
+      "fill": "blue",
+      "fillStyle": "cross-hatch"
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      200,
+      120
+     ],
+     "options": {
+      "seed": 34,
+      "fill": "blue",
+      "fillStyle": "zigzag"
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      50,
+      50,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 35,
+      "fill": "blue",
+      "fillStyle": "dots",
+      "hachureGap": 10
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      200,
+      120
+     ],
+     "options": {
+      "seed": 36,
+      "roughness": 0
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      200,
+      120
+     ],
+     "options": {
+      "seed": 37,
+      "roughness": 0,
+      "fill": "blue"
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      400,
+      60
+     ],
+     "options": {
+      "seed": 38,
+      "roughness": 2.5,
+      "curveFitting": 0.5
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      150,
+      100,
+      80,
+      80
+     ],
+     "options": {
+      "seed": 39,
+      "curveStepCount": 20,
+      "disableMultiStroke": true
+     }
+    },
+    {
+     "method": "circle",
+     "args": [
+      80,
+      80,
+      100
+     ],
+     "options": {
+      "seed": 40,
+      "fill": "red"
+     }
+    },
+    {
+     "method": "linearPath",
+     "args": [
+      [
+       [
+        10,
+        10
+       ],
+       [
+        60,
+        80
+       ],
+       [
+        110,
+        20
+       ],
+       [
+        160,
+        90
+       ],
+       [
+        210,
+        30
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 41
+     }
+    },
+    {
+     "method": "linearPath",
+     "args": [
+      [
+       [
+        0,
+        0
+       ],
+       [
+        50,
+        50
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 42
+     }
+    },
+    {
+     "method": "linearPath",
+     "args": [
+      [
+       [
+        0,
+        0
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 43
+     }
+    },
+    {
+     "method": "polygon",
+     "args": [
+      [
+       [
+        100,
+        10
+       ],
+       [
+        125,
+        80
+       ],
+       [
+        195,
+        80
+       ],
+       [
+        140,
+        120
+       ],
+       [
+        160,
+        190
+       ],
+       [
+        100,
+        150
+       ],
+       [
+        40,
+        190
+       ],
+       [
+        60,
+        120
+       ],
+       [
+        5,
+        80
+       ],
+       [
+        75,
+        80
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 44
+     }
+    },
+    {
+     "method": "polygon",
+     "args": [
+      [
+       [
+        100,
+        10
+       ],
+       [
+        125,
+        80
+       ],
+       [
+        195,
+        80
+       ],
+       [
+        140,
+        120
+       ],
+       [
+        160,
+        190
+       ],
+       [
+        100,
+        150
+       ],
+       [
+        40,
+        190
+       ],
+       [
+        60,
+        120
+       ],
+       [
+        5,
+        80
+       ],
+       [
+        75,
+        80
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 45,
+      "fill": "purple",
+      "fillStyle": "hachure"
+     }
+    },
+    {
+     "method": "polygon",
+     "args": [
+      [
+       [
+        100,
+        10
+       ],
+       [
+        125,
+        80
+       ],
+       [
+        195,
+        80
+       ],
+       [
+        140,
+        120
+       ],
+       [
+        160,
+        190
+       ],
+       [
+        100,
+        150
+       ],
+       [
+        40,
+        190
+       ],
+       [
+        60,
+        120
+       ],
+       [
+        5,
+        80
+       ],
+       [
+        75,
+        80
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 46,
+      "fill": "purple",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "polygon",
+     "args": [
+      [
+       [
+        100,
+        10
+       ],
+       [
+        125,
+        80
+       ],
+       [
+        195,
+        80
+       ],
+       [
+        140,
+        120
+       ],
+       [
+        160,
+        190
+       ],
+       [
+        100,
+        150
+       ],
+       [
+        40,
+        190
+       ],
+       [
+        60,
+        120
+       ],
+       [
+        5,
+        80
+       ],
+       [
+        75,
+        80
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 47,
+      "fill": "purple",
+      "fillStyle": "zigzag"
+     }
+    },
+    {
+     "method": "polygon",
+     "args": [
+      [
+       [
+        100,
+        10
+       ],
+       [
+        125,
+        80
+       ],
+       [
+        195,
+        80
+       ],
+       [
+        140,
+        120
+       ],
+       [
+        160,
+        190
+       ],
+       [
+        100,
+        150
+       ],
+       [
+        40,
+        190
+       ],
+       [
+        60,
+        120
+       ],
+       [
+        5,
+        80
+       ],
+       [
+        75,
+        80
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 48,
+      "fill": "purple",
+      "fillStyle": "cross-hatch"
+     }
+    },
+    {
+     "method": "arc",
+     "args": [
+      150,
+      150,
+      200,
+      160,
+      -1.5707963267948966,
+      2.356194490192345,
+      false
+     ],
+     "options": {
+      "seed": 49
+     }
+    },
+    {
+     "method": "arc",
+     "args": [
+      150,
+      150,
+      200,
+      160,
+      -1.5707963267948966,
+      2.356194490192345,
+      true
+     ],
+     "options": {
+      "seed": 50
+     }
+    },
+    {
+     "method": "arc",
+     "args": [
+      150,
+      150,
+      200,
+      160,
+      0.3,
+      9.72477796076938,
+      false
+     ],
+     "options": {
+      "seed": 51
+     }
+    },
+    {
+     "method": "arc",
+     "args": [
+      150,
+      150,
+      200,
+      160,
+      3.141592653589793,
+      4.71238898038469,
+      true
+     ],
+     "options": {
+      "seed": 52
+     }
+    },
+    {
+     "method": "arc",
+     "args": [
+      150,
+      150,
+      200,
+      160,
+      -1.5707963267948966,
+      3.141592653589793,
+      true
+     ],
+     "options": {
+      "seed": 53,
+      "fill": "red"
+     }
+    },
+    {
+     "method": "arc",
+     "args": [
+      150,
+      150,
+      200,
+      160,
+      -1.5707963267948966,
+      3.141592653589793,
+      true
+     ],
+     "options": {
+      "seed": 54,
+      "fill": "red",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        10
+       ],
+       [
+        100,
+        100
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 55
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        10
+       ],
+       [
+        60,
+        90
+       ],
+       [
+        120,
+        20
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 56
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        50
+       ],
+       [
+        60,
+        10
+       ],
+       [
+        110,
+        90
+       ],
+       [
+        160,
+        20
+       ],
+       [
+        210,
+        80
+       ],
+       [
+        260,
+        40
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 57
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        50
+       ],
+       [
+        60,
+        10
+       ],
+       [
+        110,
+        90
+       ],
+       [
+        160,
+        20
+       ],
+       [
+        210,
+        80
+       ],
+       [
+        260,
+        40
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 58,
+      "curveTightness": 0.5,
+      "roughness": 2
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        [
+         10,
+         50
+        ],
+        [
+         60,
+         10
+        ],
+        [
+         110,
+         90
+        ],
+        [
+         160,
+         20
+        ],
+        [
+         210,
+         80
+        ],
+        [
+         260,
+         40
+        ]
+       ],
+       [
+        [
+         20,
+         120
+        ],
+        [
+         80,
+         160
+        ],
+        [
+         140,
+         110
+        ]
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 59
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        50
+       ],
+       [
+        60,
+        10
+       ],
+       [
+        110,
+        90
+       ],
+       [
+        160,
+        20
+       ],
+       [
+        210,
+        80
+       ],
+       [
+        260,
+        40
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 60,
+      "fill": "orange",
+      "fillStyle": "hachure"
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        10
+       ],
+       [
+        60,
+        90
+       ],
+       [
+        120,
+        20
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 61,
+      "fill": "orange",
+      "fillStyle": "hachure"
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        50
+       ],
+       [
+        60,
+        10
+       ],
+       [
+        110,
+        90
+       ],
+       [
+        160,
+        20
+       ],
+       [
+        210,
+        80
+       ],
+       [
+        260,
+        40
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 62,
+      "fill": "orange",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        10
+       ],
+       [
+        60,
+        90
+       ],
+       [
+        120,
+        20
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 63,
+      "fill": "orange",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 L 100 10 L 100 100 Z"
+     ],
+     "options": {
+      "seed": 64
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "m10 10 l90 0 l0 90 z"
+     ],
+     "options": {
+      "seed": 65
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80"
+     ],
+     "options": {
+      "seed": 66
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 80 Q 52.5 10, 95 80 T 180 80"
+     ],
+     "options": {
+      "seed": 67
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 H 90 V 90 H 10 Z"
+     ],
+     "options": {
+      "seed": 68
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M80 80 A 45 45, 0, 0, 0, 125 125 L 125 80 Z"
+     ],
+     "options": {
+      "seed": 69
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M80 80 A 45 45, 0, 1, 1, 125 125"
+     ],
+     "options": {
+      "seed": 70
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 a 30 50 30 1 0 60 20"
+     ],
+     "options": {
+      "seed": 71
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 h 50 v 50 h -50 z M100 10 h 50 v 50 h -50 z"
+     ],
+     "options": {
+      "seed": 72
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10,10L- 50,50 L\n90,10"
+     ],
+     "options": {
+      "seed": 73
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "L 50 50 L 90 10"
+     ],
+     "options": {
+      "seed": 74
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 L 50 50 # 2"
+     ],
+     "options": {
+      "seed": 75
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 L 100 10 L 100 100 Z"
+     ],
+     "options": {
+      "seed": 76,
+      "fill": "teal",
+      "fillStyle": "hachure"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 h 50 v 50 h -50 z M100 10 h 50 v 50 h -50 z"
+     ],
+     "options": {
+      "seed": 77,
+      "fill": "teal",
+      "fillStyle": "hachure"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 L 100 10 L 100 100 Z"
+     ],
+     "options": {
+      "seed": 78,
+      "fill": "teal",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 h 50 v 50 h -50 z M100 10 h 50 v 50 h -50 z"
+     ],
+     "options": {
+      "seed": 79,
+      "fill": "teal",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 L 100 10 L 100 100 Z"
+     ],
+     "options": {
+      "seed": 80,
+      "fill": "teal",
+      "fillStyle": "cross-hatch"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 h 50 v 50 h -50 z M100 10 h 50 v 50 h -50 z"
+     ],
+     "options": {
+      "seed": 81,
+      "fill": "teal",
+      "fillStyle": "cross-hatch"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80"
+     ],
+     "options": {
+      "seed": 82,
+      "fill": "teal",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80"
+     ],
+     "options": {
+      "seed": 83,
+      "simplification": 0.5
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M80 80 A 45 45, 0, 0, 0, 125 125 L 125 80 Z"
+     ],
+     "options": {
+      "seed": 84,
+      "fill": "transparent"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      ""
+     ],
+     "options": {
+      "seed": 85
+     }
+    }
+   ]
+  },
+  {
+   "name": "unseeded-shared-defaults",
+   "mathRandomSeed": 20261113,
+   "config": null,
+   "calls": [
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      100,
+      50
+     ],
+     "options": null
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      100,
+      100,
+      80,
+      40
+     ],
+     "options": null
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      100,
+      50
+     ],
+     "options": {
+      "fill": "red"
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      0,
+      0,
+      50,
+      50
+     ],
+     "options": null
+    }
+   ]
+  },
+  {
+   "name": "config-seed",
+   "mathRandomSeed": 7,
+   "config": {
+    "options": {
+     "seed": 7,
+     "roughness": 2
+    }
+   },
+   "calls": [
+    {
+     "method": "line",
+     "args": [
+      0,
+      0,
+      100,
+      100
+     ],
+     "options": null
+    },
+    {
+     "method": "line",
+     "args": [
+      0,
+      0,
+      100,
+      100
+     ],
+     "options": null
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      100,
+      50
+     ],
+     "options": {
+      "fill": "red",
+      "fillStyle": "cross-hatch"
+     }
+    },
+    {
+     "method": "circle",
+     "args": [
+      50,
+      50,
+      60
+     ],
+     "options": null
+    }
+   ]
+  }
+ ]
+}

@@ -2,3 +2,4 @@
 /out
 /docs/probes/target
 *.actual.png
+node_modules/

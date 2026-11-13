@@ -1,0 +1,9 @@
+{
+  "name": "rough-oracle",
+  "private": true,
+  "description": "Runs rough.js 4.6.6 on samples/roughjs/tests/fixtures/cases.json to record the port's expected output.",
+  "license": "MIT",
+  "dependencies": {
+    "roughjs": "4.6.6"
+  }
+}

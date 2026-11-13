@@ -52,3 +52,44 @@ compositor of its own (design.md §9).
 
 Each swap-in deletes its scaffolding and the matching row in
 [framework-gaps.md](framework-gaps.md).
+
+## Progress
+
+### P2-1: the rough.js generator
+
+`samples/roughjs` ports rough.js 4.6.6's generator and its four
+dependencies. It is compared with rough.js 4.6.6 itself: 92 calls cover
+every shape, every fill style and the main options.
+
+Measured on 13 November 2026, on Windows with Node 22.18.0 (V8 12.4), using
+`cargo test -p roughjs --test oracle -- --nocapture`:
+
+- All 92 calls have identical structure: sets, op sequence and data
+  lengths.
+- 42,876 of 42,903 numbers are bit-identical; the other 27 are within
+  2 ulps.
+- 525 of 532 strings are identical.
+
+**Finding for every port of JavaScript.** V8's `Math.sin` and `Math.cos`
+are not fdlibm. On 200,000 inputs, the `libm` crate (fdlibm) matches Node 22
+bit for bit for `tan`, `asin` and `atan`. For `sin` and `cos`, about 0.9% of
+results differ by one bit. Rust's platform functions on Windows differ more:
+2.3–4.0% for `sin`, `cos`, `tan` and `asin`, and 0.02% for `atan`.
+
+This is consistent with V8's build option `v8_use_libm_trig_functions`,
+which uses glibc-derived `sin` and `cos`. That code is LGPL, so the port
+does not copy it.
+
+This is not a Div gap: Div runs no JavaScript. But every sample that ports
+JavaScript math and compares bit for bit will meet it.
+
+**Deviations from rough.js:**
+
+- **Path data with a number after `Z`.** rough.js's path parser loops
+  forever on this input; the port returns an error.
+- **An empty polygon with a fill.** rough.js throws a `TypeError` reading
+  its first point; the port skips the polygon.
+- **No shared input points.** The port does not alias the caller's point
+  arrays. rough.js's hachure rotation can leave rounding residue in an
+  array the caller passed in, but it does not change rough.js's output for
+  that call.

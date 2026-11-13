@@ -30,19 +30,34 @@ Phase 1 was design only:
 
 Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md).
 
+## Samples
+
+- [samples/roughjs](samples/roughjs): a port of rough.js 4.6.6's generator,
+  compared op by op with rough.js itself (milestone P2-1).
+
 ## Build
 
-Div is pinned to one commit in `docs/probes/Cargo.toml`. Its Skia is built
-from source with Div's CI profile (`.cargo/config.toml`).
+The repository is one Cargo workspace. Div is pinned to one commit in
+`docs/probes/Cargo.toml` and in the patch table of the root `Cargo.toml`.
+Div's Skia is built from source with Div's CI profile
+(`.cargo/config.toml`).
 
 On Windows:
 
 ```
 . tools\win-build.ps1
-cd docs\probes
 cargo test --release -- --nocapture --test-threads 1
-cargo run --release --bin frame_loop -- 3
+cargo run --release -p canvas-probes --bin frame_loop -- 3
 ```
 
 On Linux, install Div's build dependencies (listed in
 `.github/workflows/ci.yml`) and run the same cargo commands.
+
+To re-record the rough.js oracle (Node 22):
+
+```
+python -I tools/rough-oracle/make_cases.py
+cd tools/rough-oracle
+npm ci
+node oracle.cjs
+```

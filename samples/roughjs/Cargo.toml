@@ -1,0 +1,18 @@
+[package]
+name = "roughjs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+publish = false
+description = "A port of rough.js 4.6.6 to Rust, measured against the original"
+# rough.js and its dependencies are MIT; see THIRD_PARTY_LICENSES.md.
+license = "MIT"
+
+[dependencies]
+# fdlibm-derived sin, cos, tan, asin and atan, the same lineage V8 uses for
+# JavaScript's Math functions. The platform libm may differ in the last bit.
+libm = "0.2"
+
+[dev-dependencies]
+# Exact float parsing, so oracle numbers are read back bit for bit.
+serde_json = { version = "1", features = ["float_roundtrip"] }

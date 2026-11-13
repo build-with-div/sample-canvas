@@ -39,13 +39,9 @@ jobs:
     defaults:
       run:
         shell: bash
-        # The probes are the only code until the Phase 2 samples land.
-        working-directory: docs/probes
     steps:
       - name: Enable long paths before checkout
         if: runner.os == 'Windows'
-        # docs/probes does not exist until checkout.
-        working-directory: ${{ runner.temp }}
         run: git config --global core.longpaths true
 
       - uses: actions/checkout@v6
@@ -87,9 +83,9 @@ jobs:
           path: |
             ~/.cargo/git
             ~/.cargo/registry
-            docs/probes/target
+            target
             out/cargo
-          key: build-test-v1-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'docs/probes/Cargo.lock') }}
+          key: build-test-v1-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
           restore-keys: build-test-v1-${{ runner.os }}-
 
       - name: Check formatting
