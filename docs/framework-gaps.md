@@ -5,7 +5,7 @@ Each gap lists:
 - the web platform feature whose absence causes it, with its ID from
   [design.md §2](design.md#2-the-platform-div-must-implement);
 - the owning Div track;
-- the source at Div `565db46a`;
+- the source at Div `565db46a`, unchanged at `92ea25a0` (only `view!` children changed between them);
 - the temporary scaffolding, if any, that unblocks a sample until the
   feature lands. Scaffolding is labeled `// div-gap: W…` in code and
   removed when the feature arrives; it is never the solution.
@@ -71,3 +71,21 @@ All 7 probe tests pass.
   machine under load. The canvas slots in design.md §5.1 target exactly this
   cost.
 
+### Re-run at Div `92ea25a0`
+
+Re-run on 13 November 2026, on the same machine and with the same commands,
+after the pin moved from `565db46a` to `92ea25a0`. All seven probes pass, and
+P1–P6 print the same values as before.
+
+P7 measured, per frame:
+
+- draw: 0.47 ms;
+- readback, register and set: 0.66 ms;
+- Div render: 17.69 ms;
+- an unchanged-document render: 6.49 ms.
+
+These are lower than the first run's 25.5 ms render. Between the two
+commits Div changed only `view!` children (`div-macros`, `divui/src/view_child.rs`),
+none of the render path. So the difference is machine load, which other
+sessions' builds vary, not a Div change. The numbers stay pessimistic and
+uncontrolled.

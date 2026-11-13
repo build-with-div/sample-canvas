@@ -14,7 +14,7 @@ Any temporary scaffolding in a sample is labeled `// div-gap: W…` with the
 platform feature that replaces it, and logged in
 [docs/framework-gaps.md](docs/framework-gaps.md).
 
-Phase 1 is design only:
+Phase 1 was design only:
 
 - [docs/design.md](docs/design.md): packages, then the platform features
   they use (W1–W21), what Div has, owners and sizes, architecture, the
@@ -27,6 +27,8 @@ Phase 1 is design only:
   which WPT `html/canvas` tests a Div 2D context could port.
 - [docs/probes](docs/probes): probes of Div's public API at the pinned
   commit.
+
+Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md).
 
 ## Build
 
