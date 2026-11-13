@@ -6,6 +6,30 @@ built in Div. All Div source references are to build-with-div/div at
 `565db46a` (`crates/...:line`). Probe results come from `docs/probes` in
 this repo; each number comes with its command and conditions.
 
+**Platform decisions.** On 13 November 2026 the user accepted the platform
+design decisions that resolve the consolidated plan's open questions. This
+document follows them. The ones that apply to canvas:
+
+- **Decision 1, one rendering design.** Partial redraw is designed once by
+  the engine: damage regions first, then layers. Canvas slots (§5.1) are a
+  client of that design, not a separate mechanism.
+- **Decision 4, API shapes.**
+  - `requestAnimationFrame` is per document and returns a typed handle in
+    every window.
+  - `ResizeObserver` is one API with three boxes.
+  - Pointer Events use typed enums and bitflags carrying web values, and
+    the mouse's `pointerId` is 1.
+- **Decision 5, route A.**
+  - `getContext("webgpu")` returns a `GPUCanvasContext` on wgpu.
+  - The device is shared with Div, and Div recovers from device loss.
+  - Translucent canvases over Div content wait for decision 1's layers.
+  - The first step is to verify that headless Chromium 147 exposes
+    SwiftShader WebGPU.
+- **Decision 8, Canvas 2D.** The engine owns it, as a new `div-canvas`
+  crate. It is tested with WPT YAML-generated tests and call-trace replay.
+- **Decision 12, `node_ref`.** `node_ref` in `view!` is accepted as
+  framework work.
+
 **The principle.**
 
 - The samples are ports of popular npm canvas packages.
@@ -293,14 +317,21 @@ for the 2D context (§9).
   slot versions).
 - **Stacked canvases (W10) are slots in z-order.** An overlay redraw, such
   as a crosshair over a 100k-point series, touches only its own slot.
+- **Slots sit on the engine's partial-redraw design** (decision 1).
+  - A slot version change is one more source of damage regions. The
+    engine's damage tracking and partial raster (its Tier 0 item 0.7)
+    turn those regions into a partial frame.
+  - The GPU texture quads in §5.2 are layers of that same design.
+  - Div gets one scene model, not one for canvases and another for
+    animation.
 - **The 2D context keeps Chromium's model.** Draw calls go to the bitmap
   immediately. The element shows the committed bitmap at the next frame.
   `getImageData` sees every draw so far.
 
 ### 5.2 Route A: `getContext("webgpu")`
 
-**Recommendation.** Div owns presentation and composites canvas textures,
-as a browser does. The app gets its GPU objects the web way:
+**Decided** (decision 5). Div owns presentation and composites canvas
+textures, as a browser does. The app gets its GPU objects the web way:
 
 ```rust
 let adapter = div::gpu().request_adapter(&Default::default()).await?; // navigator.gpu
@@ -311,7 +342,7 @@ context.configure(&GpuCanvasConfiguration {
     format: div::gpu().preferred_canvas_format(),
     alpha_mode: GpuCanvasAlphaMode::Premultiplied,
 })?;
-// per frame, from request_animation_frame:
+// per frame, from document.request_animation_frame(...), which returns a typed handle:
 let texture = context.get_current_texture()?;                         // wgpu::Texture
 /* render into texture with the WebGPU API (wgpu) */
 ```
@@ -331,8 +362,12 @@ This needs a presenter change (W17):
 - **Z-order uses underlay with a hole punch.** Div's frame is transparent
   over the canvas, and the canvas texture is drawn under it. Content above
   the canvas, such as popovers, stays above. Translucent canvas pixels over
-  Div content *below* the canvas need a third layer, which waits for real
-  layer partitioning (risk R3).
+  Div content *below* the canvas need a third layer. That waits for the
+  layers of the engine's one rendering design (decision 1; risk R3).
+- **Device loss is recovered** (decision 5).
+  - Div recreates its device and keeps presenting its own content.
+  - The canvas context reports loss to the app, as WebGPU's
+    `device.lost` does, and the app recreates its resources.
 - **The software presenter cannot sample GPU textures.** On softbuffer, a
   WebGPU canvas reads its texture back each frame. This is slow but
   correct, and it is reported as such.
@@ -389,11 +424,11 @@ no required work. Suggested order, smallest useful first:
 | --- | --- | --- | --- | --- |
 | 1 | W1 canvas element sizing and bitmap display; W11 `requestAnimationFrame`; W12 `devicePixelRatio` | engine (W1), framework (W11, W12) | S + S/M + S | Every sample can size a canvas and animate |
 | 2 | W2 core context (Blink port, first slice: paths, fill, stroke, line styles, dashes, state, transforms, clip, alpha, composite) and W3 styles | engine | L (M + M) | rough.js, the drawing core of Konva and Fabric, Chart.js shapes; WPT M1 core (431 tests) |
-| 3 | §5.1 canvas slots and canvas-only frames | engine (scene, CPU compositor) | M/L | Canvas animation without re-rendering the window (probe P7: 25–29 ms per frame today) |
+| 3 | §5.1 canvas slots and canvas-only frames, on the engine's damage and partial raster (Tier 0 item 0.7, decision 1) | engine (scene, CPU compositor) | M/L | Canvas animation without re-rendering the window (probe P7: 25–29 ms per frame today) |
 | 4 | W14 Pointer Events; W13 `ResizeObserver` | framework + engine | M + M | Konva and Fabric interaction; responsive Chart.js and ECharts |
 | 5 | W5 text, W7 readback, W4 shadows, W8 `Path2D` and hit tests, W6 `drawImage` | engine | M + S + S/M + M + M | Chart.js, ECharts and Excalidraw text; Konva hit canvas and shadows |
 | 6 | W9 export, W10 detached and stacked canvases, W15 `FontFace`, W16 fallback content | framework + engine | S each (W15 S/M) | Export, Excalidraw fonts, accessibility |
-| 7 | W17 `GPUCanvasContext` and the wgpu presenter; W18 `copyExternalImageToTexture` | framework (platform) + engine (scene) | L + S | three.js `WebGPURenderer`, Babylon `WebGPUEngine`, luma.gl and deck.gl |
+| 7 | First, verify that headless Chromium 147 exposes SwiftShader WebGPU (the oracle). Then W17 `GPUCanvasContext` and the wgpu presenter, with a shared device and device-loss recovery; W18 `copyExternalImageToTexture` | framework (platform) + engine (scene) | L + S | three.js `WebGPURenderer`, Babylon `WebGPUEngine`, luma.gl and deck.gl |
 | 8 | W19 `OffscreenCanvas` and `createImageBitmap`; W20 filters, layers, reset, color | engine + framework | M + L | PixiJS 8 and Babylon extras |
 | later | W21 WebGL2 | framework | XL | WebGL-only code paths |
 
@@ -488,6 +523,7 @@ Two complementary methods, using the same input both ways:
   overlapping Div content, at device scale 1 and 2. Compare exactly with
   Chromium, which must run WebGPU on a software adapter (SwiftShader).
   Whether pinned Chromium 147 exposes that headlessly has not been checked.
+  Checking it is the first step of W17 (decision 5).
 - **Shader rasterization.** Rasterization differs between GPUs, so content
   such as a three.js scene is compared with a stated tolerance, never
   claimed exact.
@@ -528,7 +564,8 @@ exercise their platform features. They stay in the ranking.
   canvas, under load. With the nested-flex layout cost (sample-git gap 26),
   any relayout per frame would make it worse; a canvas content change must
   never relayout.
-- **R2. Sharing Div's wgpu device with app code** (§5.2) is simpler than
+- **R2. Sharing Div's wgpu device with app code** (§5.2, decided in
+  decision 5 with device-loss recovery) is simpler than
   cross-API interop, but it departs from browsers, where each page gets its
   own device in a separate GPU process.
   - Device loss or validation errors caused by app code could affect Div's
@@ -539,7 +576,8 @@ exercise their platform features. They stay in the ranking.
     through wgpu-hal shared handles, at the cost of per-platform interop.
 - **R3. Underlays cannot show translucent canvas pixels over Div content
   below the canvas.** That needs three-layer composition, which waits for
-  real layer partitioning (Div's layered capture is diagnostic today).
+  the layers of the engine's one rendering design (decision 1). Div's
+  layered capture is diagnostic today.
   - `alphaMode: "premultiplied"` canvases over non-opaque content are
     flagged in debug builds.
   - 2D canvases do not have this problem: their contents are CPU images

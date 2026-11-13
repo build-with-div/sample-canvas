@@ -20,7 +20,7 @@ Not scheduled:
 
 - the canvas element (C1, i.e. W1);
 - Canvas 2D (C2/C3, i.e. W2–W8);
-- the WebGPU canvas (C5, i.e. W17), which is open question Q1.
+- the WebGPU canvas (C5, i.e. W17). Its design is settled by decision 5 of the 13 November platform decisions (see design.md), but the work is not scheduled.
 
 So no sample can draw pixels yet. Both canvas routes stay behind labeled
 `// div-gap:` scaffolding, and no sample contains a 2D context or
