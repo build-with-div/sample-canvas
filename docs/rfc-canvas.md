@@ -13,6 +13,11 @@ Status: draft for the Div tracks, revised 13 November 2026 for the
 - **Background:** [design.md](design.md) has the package scan, the platform
   table (W1–W21), probes and measurements. Source references are to Div
   `565db46a`.
+- **Decisions:** this draft follows the platform design decisions the user
+  accepted on 13 November 2026, which design.md lists. Under decision 4,
+  the framework track's own RFC sets the exact shapes for
+  `requestAnimationFrame`, `ResizeObserver` and Pointer Events; the
+  sketches below follow its directions.
 
 ## Problem
 
@@ -74,7 +79,8 @@ impl HtmlCanvasElement {
   working context, which packages use as scratch canvases. Stacked canvases
   composite in paint order.
 - **`view!`.** It accepts `<canvas width=… height=…>` already. A typed
-  handle needs a node-ref mechanism in `view!`, which sample-git also needs:
+  handle needs `node_ref` in `view!`, which sample-git also needs, and
+  which decision 12 accepts as framework work:
   `<canvas node_ref=canvas_ref …>` with
   `canvas_ref: NodeRef<HtmlCanvasElement>`.
 
@@ -181,15 +187,19 @@ pub enum CanvasImageSource<'a> { Image(&'a Element), Canvas(&'a HtmlCanvasElemen
 
 ```rust
 // W11: HTML "run the animation frame callbacks", inside Document::begin_frame,
-// after pending events and before style/layout/paint.
-pub fn request_animation_frame(callback: impl FnOnce(f64) + 'static) -> u64;
-pub fn cancel_animation_frame(handle: u64);
+// after pending events and before style/layout/paint. Per document, typed
+// handle, every window (decision 4).
+impl Document {
+    pub fn request_animation_frame(&self, callback: impl FnOnce(f64) + 'static) -> AnimationFrameHandle;
+    pub fn cancel_animation_frame(&self, handle: AnimationFrameHandle);
+}
 
 // W12
 impl Window { pub fn device_pixel_ratio(&self) -> f64; }
 pub fn match_media(query: &str) -> MediaQueryList;   // "(resolution: 2dppx)" with change events
 
-// W13: engine computes after layout; framework delivers before paint.
+// W13: one API with three boxes; engine computes after layout, framework
+// delivers before paint (decision 4).
 pub struct ResizeObserver { /* … */ }
 impl ResizeObserver {
     pub fn new(callback: impl Fn(&[ResizeObserverEntry], &ResizeObserver) + 'static) -> Self;
@@ -199,9 +209,13 @@ impl ResizeObserver {
 
 // W14: PointerEvent fields on Event, and native mouse input producing
 // pointer* events before the compatibility mouse* events, as Chromium does.
+// Typed enums and bitflags carrying web values; the mouse's pointerId is 1
+// (decision 4).
 impl Event {
     pub fn offset_x(&self) -> f64; pub fn offset_y(&self) -> f64;   // from the hit test's world_to_local
-    pub fn buttons(&self) -> u16; pub fn pointer_type(&self) -> &str; // "mouse" | "pen" | "touch"
+    pub fn pointer_id(&self) -> i32;                                 // 1 for the mouse
+    pub fn buttons(&self) -> Buttons;                                // bitflags with web values: PRIMARY = 1, SECONDARY = 2, AUXILIARY = 4
+    pub fn pointer_type(&self) -> Option<PointerType>;               // Mouse | Pen | Touch
     pub fn pressure(&self) -> f32; pub fn tilt_x(&self) -> i32; pub fn tilt_y(&self) -> i32;
 }
 // plus dispatch of "dblclick", "contextmenu", "gotpointercapture"/"lostpointercapture".
@@ -253,17 +267,22 @@ impl wgpu::Queue /* extension trait */ {
   - `alphaMode: opaque` ignores alpha.
   - `premultiplied` composites under Div content with a hole punch.
   - Translucent canvases over Div content below them are limited until
-    layer partitioning exists (design.md risk R3).
-- **Shared device.** Adapters and devices come from Div's own instance, so
-  the compositor samples canvas textures on the same device, with no
-  cross-API interop. This departs from browsers' per-page devices; see
-  design.md risk R2.
+    decision 1's layers exist (design.md risk R3).
+- **Shared device** (decision 5). Adapters and devices come from Div's
+  own instance, so the compositor samples canvas textures on the same
+  device, with no cross-API interop. This departs from browsers' per-page
+  devices; see design.md risk R2.
+- **Device loss.** On loss, Div recreates its device and keeps presenting
+  its own content. The app sees the loss as WebGPU reports it, and
+  recreates its device and resources.
 - **Software presentation** reads canvas textures back. That is slow, and
   it is reported.
 
 ### 5. Internal: canvas slots (engine)
 
-This is not public API. Paint records a slot at each canvas's content box.
+This is not public API. It is a client of the engine's one partial-redraw
+design (decision 1): a slot change is a damage region, and a GPU canvas is
+a layer. Paint records a slot at each canvas's content box.
 Canvas contents (a 2D bitmap or a GPU texture) are versioned outside the
 document lifecycle:
 
@@ -305,7 +324,9 @@ context records the same picture as before.
 5. **W5, W7, W4, W8, W6**, each with its WPT bucket. Package call-trace
    replays (design.md §7.2) start as soon as a package's members exist.
 6. **W9, W10, W15, W16.**
-7. **W17, W18**, with the wgpu presenter behind `BackendPreference` until
+7. **W17, W18.** First verify that headless Chromium 147 exposes
+   SwiftShader WebGPU, the oracle for the composition comparison. Then
+   build them, with the wgpu presenter behind `BackendPreference` until
    it passes the CPU presenter's pixel tests. Then the WebGPU CTS subset
    and the composition comparison (design.md §7.3).
 8. **W19, W20**, then W21 if the WebGL-only paths of three.js and Babylon
