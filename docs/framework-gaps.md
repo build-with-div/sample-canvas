@@ -14,7 +14,7 @@ Each gap lists:
 
 | # | Gap | Platform feature (ID) | Track | Source | Temporary scaffolding |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `<canvas>` paints nothing; there is no `getContext`. | `HTMLCanvasElement` (W1), `CanvasRenderingContext2D` (W2–W8) | engine | `div-paint/src/painter.rs:6331` | None for drawing (no private context). `SurfaceBridge` in `docs/probes` is a measurement tool. |
+| 1 | `<canvas>` paints nothing; there is no `getContext`. | `HTMLCanvasElement` (W1), `CanvasRenderingContext2D` (W2–W8) | engine | `div-paint/src/painter.rs:6331` | None for drawing (no private context). `SurfaceBridge` in `docs/probes` is a measurement tool. `samples/roughjs` has `RoughCanvasContext` and `CallRecorder` (`// div-gap: W2`), which record rough.js's context calls and draw nothing. |
 | 2 | A `<canvas>` with no CSS size is 300×0 inline, and fills its container's width at height 0 as a block. Chromium gives 300×150 both ways: the element has no intrinsic size until it gets an image. | `HTMLCanvasElement` sizing (W1) | engine | `div-layout/src/intrinsic_sizing.rs:3465, 3505`; `div-dom/src/tree.rs:32-39` (`TransparentCanvas` is only set in tests) | Set the canvas's CSS width and height (P1) |
 | 3 | The only way to show app pixels is the undocumented `image/x-openui-rgba8` resource. | canvas bitmap display (W1) | engine | `div-paint/src/image_resource.rs:336-372` | `SurfaceBridge` (`// div-gap: W1`) |
 | 4 | Image resources are cached by the `sha256` string alone and never freed, so each pushed frame leaks. | canvas bitmap display (W1); resource lifetime for `<img>` too | engine | `image_resource.rs:14-20, 179`; `div-dom/src/tree.rs:1042-1067` | A unique key per frame; samples cap their run time (P3) |

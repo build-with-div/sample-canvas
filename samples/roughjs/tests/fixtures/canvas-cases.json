@@ -1,0 +1,312 @@
+{
+ "groups": [
+  {
+   "name": "canvas-seeded",
+   "mathRandomSeed": 3,
+   "config": null,
+   "calls": [
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      120,
+      60
+     ],
+     "options": {
+      "seed": 101
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      120,
+      60
+     ],
+     "options": {
+      "seed": 102,
+      "stroke": "none"
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      120,
+      60
+     ],
+     "options": {
+      "seed": 103,
+      "strokeLineDash": [
+       5,
+       3
+      ],
+      "strokeLineDashOffset": 2
+     }
+    },
+    {
+     "method": "line",
+     "args": [
+      10,
+      10,
+      120,
+      60
+     ],
+     "options": {
+      "seed": 104,
+      "strokeLineDash": [],
+      "strokeLineDashOffset": 0
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 105,
+      "fill": "red"
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 106,
+      "fill": "red",
+      "fillWeight": 3,
+      "fillLineDash": [
+       2,
+       2
+      ],
+      "fillLineDashOffset": 1
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 107,
+      "fill": "red",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "rectangle",
+     "args": [
+      10,
+      10,
+      60,
+      40
+     ],
+     "options": {
+      "seed": 108,
+      "fill": "red",
+      "fixedDecimalPlaceDigits": 2
+     }
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      60,
+      60,
+      80,
+      50
+     ],
+     "options": {
+      "seed": 109,
+      "fill": "green",
+      "fillStyle": "solid",
+      "fixedDecimalPlaceDigits": 0
+     }
+    },
+    {
+     "method": "circle",
+     "args": [
+      50,
+      50,
+      60
+     ],
+     "options": {
+      "seed": 110,
+      "fill": "blue",
+      "fillStyle": "zigzag",
+      "stroke": "none"
+     }
+    },
+    {
+     "method": "polygon",
+     "args": [
+      [
+       [
+        10,
+        10
+       ],
+       [
+        90,
+        20
+       ],
+       [
+        40,
+        80
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 111,
+      "fill": "purple",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "linearPath",
+     "args": [
+      [
+       [
+        10,
+        10
+       ],
+       [
+        90,
+        20
+       ],
+       [
+        40,
+        80
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 112,
+      "strokeWidth": 4
+     }
+    },
+    {
+     "method": "curve",
+     "args": [
+      [
+       [
+        10,
+        50
+       ],
+       [
+        60,
+        10
+       ],
+       [
+        110,
+        90
+       ],
+       [
+        160,
+        20
+       ]
+      ]
+     ],
+     "options": {
+      "seed": 113,
+      "fill": "orange",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "arc",
+     "args": [
+      60,
+      60,
+      80,
+      60,
+      0,
+      4,
+      true
+     ],
+     "options": {
+      "seed": 114,
+      "fill": "teal",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 h 50 v 50 h -50 z"
+     ],
+     "options": {
+      "seed": 115,
+      "fill": "teal",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 h 50 v 50 h -50 z M100 10 h 50 v 50 h -50 z"
+     ],
+     "options": {
+      "seed": 116,
+      "fill": "teal",
+      "fillStyle": "solid"
+     }
+    },
+    {
+     "method": "path",
+     "args": [
+      "M10 10 L 50 50 # 2"
+     ],
+     "options": {
+      "seed": 117
+     }
+    }
+   ]
+  },
+  {
+   "name": "canvas-config",
+   "mathRandomSeed": 4,
+   "config": {
+    "options": {
+     "seed": 9,
+     "stroke": "#336",
+     "strokeWidth": 2
+    }
+   },
+   "calls": [
+    {
+     "method": "rectangle",
+     "args": [
+      5,
+      5,
+      40,
+      30
+     ],
+     "options": null
+    },
+    {
+     "method": "ellipse",
+     "args": [
+      30,
+      30,
+      40,
+      30
+     ],
+     "options": null
+    }
+   ]
+  }
+ ]
+}

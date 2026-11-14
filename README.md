@@ -33,7 +33,9 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
 ## Samples
 
 - [samples/roughjs](samples/roughjs): a port of rough.js 4.6.6's generator,
-  compared op by op with rough.js itself (milestone P2-1).
+  compared op by op with rough.js itself (milestone P2-1), and of its canvas
+  renderer, whose 2D context calls are compared with rough.js's (P2-2). The
+  renderer draws nothing yet: Div has no 2D context (W2).
 
 ## Build
 
