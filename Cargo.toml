@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["docs/probes", "samples/board", "samples/konva", "samples/konva-shell", "samples/roughjs", "samples/three"]
+members = ["docs/probes", "samples/board", "samples/konva", "samples/konva-shell", "samples/roughjs", "samples/three", "samples/three-shell"]
 
 # Div is pinned to one commit: bump `rev` in docs/probes/Cargo.toml and in
 # this patch table together. The lock is seeded from Div's own Cargo.lock.

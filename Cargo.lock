@@ -2505,6 +2505,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "three-shell"
+version = "0.1.0"
+dependencies = [
+ "divui",
+ "serde_json",
+ "three",
+]
+
+[[package]]
 name = "tiny-xlib"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
