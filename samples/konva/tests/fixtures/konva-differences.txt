@@ -1,0 +1,13 @@
+# Differences from Konva 10.9.1 that tests/oracle.rs allows, by
+# `<group> op <index><path>` in fixtures/cases.json and the oracle's results.
+# The test fails on any difference beyond 2 ulps not listed here, and on a
+# listed one that no longer occurs.
+
+## Math.sin: V8 is not fdlibm
+# r10 in tree-5 is rotated by -111.1 degrees. For that angle V8's Math.sin
+# returns -0.9329535348254892 and fdlibm (the libm crate) -0.932953534825489,
+# one ulp apart (see docs/phase2-plan.md, P2-1). The values derived from
+# r10's transform stay within 1 ulp of Konva's except the skew from
+# decompose(), where a*c + b*d cancels (0.28138 - 0.28345) and the ulp
+# becomes 223.
+tree-5 op 820.r.skewX

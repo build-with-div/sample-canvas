@@ -12,6 +12,8 @@
 //! port computes them each time. The cached and uncached paths of Konva
 //! perform the same arithmetic in the same order, so results agree.
 
+use crate::canvas::{Canvas, CanvasKind};
+use crate::color;
 use crate::js;
 use crate::transform::{IRect, Transform, Vector2d, PI_OVER_180};
 use std::cell::{Cell, RefCell};
@@ -25,6 +27,8 @@ pub enum Value {
     Number(f64),
     Bool(bool),
     String(String),
+    /// An array of numbers, such as `dash` or a per-corner `cornerRadius`.
+    Array(Vec<f64>),
 }
 
 impl From<f64> for Value {
@@ -42,6 +46,11 @@ impl From<&str> for Value {
         Value::String(v.into())
     }
 }
+impl From<Vec<f64>> for Value {
+    fn from(v: Vec<f64>) -> Self {
+        Value::Array(v)
+    }
+}
 
 impl Value {
     /// JavaScript truthiness.
@@ -50,10 +59,12 @@ impl Value {
             Value::Number(n) => js::truthy(*n),
             Value::Bool(b) => *b,
             Value::String(s) => !s.is_empty(),
+            Value::Array(_) => true,
         }
     }
 
-    /// `===`.
+    /// `===`, as `_setAttr` compares: an array is an object, so setting
+    /// one always counts as a change.
     fn strict_eq(&self, other: &Value) -> bool {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => a == b,
@@ -142,7 +153,7 @@ thread_local! {
     static ID_COUNTER: Cell<u64> = const { Cell::new(1) };
 }
 
-struct NodeData {
+pub(crate) struct NodeData {
     id: u64,
     class: ClassName,
     /// `attrs`, in insertion order as a JavaScript object keeps it.
@@ -152,11 +163,15 @@ struct NodeData {
     index: Cell<usize>,
     listeners: RefCell<BTreeMap<String, Vec<Listener>>>,
     should_fire_change_events: Cell<bool>,
+    /// A shape's `colorKey`, its color in the hit canvas.
+    pub(crate) color_key: RefCell<Option<String>>,
+    /// A layer's scene and hit canvases; a stage's `bufferHitCanvas`.
+    pub(crate) canvases: RefCell<Vec<Canvas>>,
 }
 
 /// A Konva node. Cloning the handle does not clone the node.
 #[derive(Clone)]
-pub struct Node(Rc<NodeData>);
+pub struct Node(pub(crate) Rc<NodeData>);
 
 impl std::fmt::Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -205,10 +220,52 @@ impl Node {
             index: Cell::new(0),
             listeners: RefCell::new(BTreeMap::new()),
             should_fire_change_events: Cell::new(false),
+            color_key: RefCell::new(None),
+            canvases: RefCell::new(Vec::new()),
         }));
         node.set_attrs(config);
         node.0.should_fire_change_events.set(true);
+        match class.node_type() {
+            NodeType::Stage => {
+                // `bufferHitCanvas`, made in `_buildDOM`.
+                node.0
+                    .canvases
+                    .borrow_mut()
+                    .push(Canvas::new(CanvasKind::Hit));
+                node.on(
+                    "widthChange.konva heightChange.konva",
+                    Rc::new(|stage: &Node, _: &mut KonvaEvent| stage.resize_dom()),
+                );
+            }
+            NodeType::Layer => {
+                node.0
+                    .canvases
+                    .borrow_mut()
+                    .extend([Canvas::new(CanvasKind::Scene), Canvas::new(CanvasKind::Hit)]);
+                node.on(
+                    "imageSmoothingEnabledChange.konva",
+                    Rc::new(|layer: &Node, _: &mut KonvaEvent| layer.set_smooth_enabled()),
+                );
+                node.set_smooth_enabled();
+            }
+            NodeType::Shape => {
+                *node.0.color_key.borrow_mut() = Some(color::new_color_key());
+            }
+            NodeType::Group => {}
+        }
         node
+    }
+
+    /// The node's canvases: a layer's scene and hit canvases, or a stage's
+    /// `bufferHitCanvas`. Other nodes have none.
+    pub fn canvases(&self) -> std::cell::RefMut<'_, Vec<Canvas>> {
+        self.0.canvases.borrow_mut()
+    }
+
+    /// A shape's `colorKey`: its color in the hit canvas. `None` once the
+    /// shape is destroyed.
+    pub fn color_key(&self) -> Option<String> {
+        self.0.color_key.borrow().clone()
     }
 
     /// `_id`.
@@ -245,7 +302,7 @@ impl Node {
         self.0.attrs.borrow().clone()
     }
 
-    fn number(&self, key: &str, default: f64) -> f64 {
+    pub(crate) fn number(&self, key: &str, default: f64) -> f64 {
         match self.attr(key) {
             Some(Value::Number(n)) => n,
             None => default,
@@ -253,7 +310,7 @@ impl Node {
         }
     }
 
-    fn flag(&self, key: &str, default: bool) -> bool {
+    pub(crate) fn flag(&self, key: &str, default: bool) -> bool {
         match self.attr(key) {
             Some(Value::Bool(b)) => b,
             None => default,
@@ -261,7 +318,7 @@ impl Node {
         }
     }
 
-    fn string(&self, key: &str) -> Option<String> {
+    pub(crate) fn string(&self, key: &str) -> Option<String> {
         match self.attr(key) {
             Some(Value::String(s)) => Some(s),
             None => None,
@@ -270,7 +327,7 @@ impl Node {
     }
 
     /// `attrs.<key> || 0`: a missing or falsy value reads as 0.
-    fn number_or_zero(&self, key: &str) -> f64 {
+    pub(crate) fn number_or_zero(&self, key: &str) -> f64 {
         match self.attr(key) {
             Some(Value::Number(n)) if js::truthy(n) => n,
             _ => 0.0,
@@ -521,6 +578,16 @@ impl Node {
     /// `add(child)`. Panics where Konva throws: a stage takes layers only,
     /// and a layer or group takes groups and shapes only.
     pub fn add(&self, child: &Node) {
+        self.container_add(child);
+        if self.node_type() == NodeType::Stage {
+            // `Stage.add`: the layer takes the stage's size and draws.
+            child.set_layer_size(self.width(), self.height());
+            child.draw();
+        }
+    }
+
+    /// `Container.add(child)`.
+    fn container_add(&self, child: &Node) {
         assert!(self.is_container(), "a shape has no children");
         if child.parent().is_some() {
             child.move_to(self);
@@ -576,6 +643,10 @@ impl Node {
         };
         self.fire_own("destroy", &mut evt);
         self.remove();
+        // `Shape.destroy`: the color key is free again.
+        if let Some(key) = self.0.color_key.borrow_mut().take() {
+            color::release_color_key(&key);
+        }
     }
 
     /// `moveTo(container)`.
@@ -1093,7 +1164,7 @@ impl Node {
 
     /// `_fire(eventType, evt)`: this node's listeners, including any added
     /// while they run.
-    fn fire_own(&self, event_type: &str, evt: &mut KonvaEvent) {
+    pub(crate) fn fire_own(&self, event_type: &str, evt: &mut KonvaEvent) {
         evt.current_target = Some(self.clone());
         evt.event_type = event_type.into();
         let list: Vec<Listener> = match self.0.listeners.borrow().get(event_type) {

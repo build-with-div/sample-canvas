@@ -35,7 +35,8 @@ compositor of its own (design.md §9).
 | P2-2 | Port rough.js's canvas renderer (`RoughCanvas`) against the `CanvasRenderingContext2D` member names. Until W2 exists, its only backend is a call recorder labeled `// div-gap: W2` | The renderer logic and the call trace | The call trace compared with rough.js's `RoughCanvas` driving a recording proxy context in Node, on the same input | W1, W2 (logged, no pixels) |
 | P2-3 | An Excalidraw-style board shell in Div: toolbar, style panel, element list, shortcuts, and a scene model with pointer gestures. Coordinates come from `clientX`/`clientY` and `getBoundingClientRect`, as Excalidraw computes them | The shell, layout and input, tested headless | The shell compared with a matching HTML page in pinned Chromium, replayed over the DevTools protocol (the runner sample-interactions uses) | W1, W2, W11, W14; new gaps 15 (border shorthands) and 16 (mousedown focus) |
 | P2-4 | Port Konva 10.9.1's scene graph: `Transform`, the node tree (`Stage`, `Layer`, `Group`, `Shape`, `Rect`, `Circle`), attributes and change events, z-order, absolute transforms and positions, `getClientRect`, visibility, and Konva's event dispatch with bubbling | All of it: the scene graph is Konva's own data structure | Every result and event compared with Konva 10.9.1 in Node on the same scripts | none |
-| P2-4b | Port Konva's drawing (`drawScene` for `Rect` and `Circle`, opacity, shadows), its color-key hit canvas, and drag state | The draw and hit-draw traces | Draw traces compared with Konva 10.9.1 driving a recording proxy context in Node | W2, W7 (the color-key hit canvas), W4, W10, W14 |
+| P2-4b | Port Konva's drawing of `Rect` and `Circle`: `drawScene` and `drawHit` for stages, layers, groups and shapes, the layer canvases, clips, fills, strokes, dashes, opacity, shadows (with Konva's color parser), and the color-key hit canvas | The scene and hit canvas call traces | Every context call compared with Konva 10.9.1 driving a recording context in Node, on the same scripts | W2 (recorded, no pixels), W6 and W2 `getTransform` (the isolation canvas, not ported), W7 (farbling check), W12 |
+| P2-4c | Konva's hit detection (`getIntersection`) and dragging | Hit detection needs pixels: it reads the hit canvas back | Waits for W2 and W7; dragging for W14 | W2, W7, W14 |
 | P2-5 | A Konva demo shell in Div: stage container, layer panel, inspector | The shell and input | Harness comparison of the shell against an HTML equivalent | W1, W2, W14 |
 | P2-6 | A three.js WebGPU example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport | The shell; the scene runs on wgpu offscreen in a test | Shell comparison; the scene waits for W17 | W17, W13 |
 
@@ -211,8 +212,9 @@ What this does not show:
 tree with attributes and `<attr>Change` events, z-order, absolute
 transforms and positions, `getClientRect` (strokes, non-scaling strokes,
 shadows, collapsed transforms, `relativeTo`), visibility, listening,
-opacity, and Konva's own event dispatch. The milestone is split: drawing,
-the hit canvas and dragging, which need W2, W4, W7 and W14, are P2-4b.
+opacity, and Konva's own event dispatch. The milestone is split: drawing
+and the hit canvas are P2-4b, and hit detection and dragging, which need
+W7 and W14, are P2-4c.
 
 The oracle (`tools/konva-oracle/oracle.mjs`) runs Konva 10.9.1 in Node
 without a DOM: automatic drawing is off, and the canvases Konva creates
@@ -238,4 +240,66 @@ test.
 
 No platform gap: the scene graph uses no web platform feature. Konva's
 events here are Konva's own; turning DOM pointer events into them needs
-W14 and comes with dragging in P2-4b.
+W14 and comes with dragging in P2-4c.
+
+### P2-4b: Konva's drawing of rects and circles
+
+`samples/konva/src/draw.rs` ports Konva's `draw`, `drawScene` and
+`drawHit` for stages, layers, groups and shapes, with the draws Konva makes
+when a layer is added to the stage or the stage is resized. It covers the
+layer canvases (`clearBeforeDraw`, `imageSmoothingEnabled`, a hit canvas
+released while the layer isn't listening), group clips and composite
+operations, and the `Rect` and `Circle` scene functions. Those include
+corner radii, fills and fill rules, strokes and non-scaling strokes,
+dashes, line styles, opacity, shadows, and the hit canvas, where each
+shape is filled and stroked in its color key. Shadows use Konva's own CSS
+color parser (`src/color.rs`); color keys come from a seedable
+`Math.random`.
+
+Div has no 2D context, so each canvas draws through `Context2d`, a trait
+naming the members Konva uses, into a `CallRecorder` that draws nothing
+(`// div-gap: W2`). Not ported, each labeled:
+
+- Konva's isolation canvas, which a shape with a fill and a stroke uses
+  when it is translucent or casts a shadow. It is sized from the context's
+  `getTransform()` (W2) and drawn back with `drawImage` of a canvas (W6).
+  The port says when Konva would use it (`use_buffer_canvas`, compared
+  with Konva) and panics if asked to draw such a shape.
+- The canvas-farbling check, which reads pixels back (W7).
+- The device pixel ratio (W12): canvases use 1, as Konva does without a
+  window.
+
+**The oracle.** `tools/konva-oracle/oracle.mjs` now gives every canvas
+Konva creates a context that records each call and assignment, by canvas
+(`l1.scene`, `l1.hit`, `s.bufferHit`). Reading a property gives back the
+value last assigned, as the port's recorder does, so the traces compare
+Konva's logic and not a 2D context. Each script seeds `Math.random`, so
+both pick the same color keys. The context has no `getTransform`: a case
+that reaches the isolation canvas stops the oracle, and the case
+generator turns `perfectDrawEnabled` off for those shapes in drawn scenes.
+
+Measured on 13 November 2026, on Windows with Node 22.18.0, using
+`cargo test --release -p konva --test oracle -- --nocapture`:
+
+- 4,883 results, 174 events and 8,677 context calls: identical
+  structure, strings, booleans, nodes, event order and call order.
+- 23,019 of 23,032 numbers are bit-identical. The other 13 come from one
+  shape rotated by -111.1°: V8's `Math.sin` and fdlibm differ by one ulp
+  there (the P2-1 finding). Twelve stay within 1 ulp; `decompose()`'s skew
+  cancels and turns the last into 223 ulps. That one is listed, with its
+  cause, in `samples/konva/tests/fixtures/konva-differences.txt`; the test
+  fails on any unlisted difference and on a listed one that no longer
+  occurs.
+- `js::number_to_string` matches `String(x)` in Node on 2,000 of 2,000
+  seeded numbers. The first run differed on 5: when two shortest digit
+  strings are equally near, ECMAScript takes the even one and Rust's
+  shortest formatting did not.
+- `js::hypot` still matches `Math.hypot` on 4,000 of 4,000 pairs.
+
+A negative check: scaling shadow blur by the larger of the two scales
+instead of the smaller changes 59 numbers and fails the test.
+
+No new platform gap. The drawing needs W2 (logged as gap 1), the
+isolation canvas W6 and W2's `getTransform`, the farbling check W7, and
+the pixel ratio W12 (gap 8); framework-gaps.md lists the new scaffolding
+under gaps 1 and 8.

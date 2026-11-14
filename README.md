@@ -41,9 +41,11 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
   `<canvas>`). It is compared with the same board as a web page in pinned
   Chromium (milestone P2-3).
 - [samples/konva](samples/konva): a port of Konva 10.9.1's scene graph
-  (transforms, the node tree, client rects and Konva's events), compared
-  result by result with Konva itself (milestone P2-4). Drawing and hit
-  detection come next; they need W2 and W7.
+  (transforms, the node tree, client rects and Konva's events, milestone
+  P2-4) and of its drawing of rects and circles into scene and hit
+  canvases (P2-4b), compared result by result and context call by context
+  call with Konva itself. It draws nothing yet: Div has no 2D context (W2).
+  Hit detection needs W7.
 
 ## Build
 

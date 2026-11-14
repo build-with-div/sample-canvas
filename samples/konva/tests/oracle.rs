@@ -1,19 +1,23 @@
 //! Runs the scripts in `fixtures/cases.json` on the port and compares every
-//! result and every event with what Konva 10.9.1 returned for the same
-//! script (`fixtures/konva-10.9.1.json`, recorded by
+//! result, every event and every 2D context call with what Konva 10.9.1 did
+//! for the same script (`fixtures/konva-10.9.1.json`, recorded by
 //! `tools/konva-oracle/oracle.mjs`).
 //!
-//! Structure, strings, booleans, handles and event order must be identical.
+//! Structure, strings, booleans, handles, event order and the order of
+//! context calls on each canvas must be identical.
 //! A number must be identical or within `MAX_ULPS` units in the last place;
-//! the test prints how many were identical.
+//! the test prints how many were identical. The differences listed in
+//! `fixtures/konva-differences.txt`, each under the cause it comes from, are
+//! allowed; the test fails on any other, and on a listed one that no longer
+//! occurs.
 
 use konva::{
-    js, ClassName, ClientRectConfig, Decomposed, IRect, KonvaEvent, Node, Transform, Value,
-    Vector2d,
+    clear_color_keys, color_to_rgba, js, set_math_random, Arg, CanvasCall, CanvasKind, ClassName,
+    ClientRectConfig, Decomposed, IRect, KonvaEvent, Node, Transform, Value, Vector2d,
 };
 use serde_json::{json, Value as Json};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 
 const MAX_ULPS: u64 = 2;
@@ -53,6 +57,7 @@ fn value(v: &Value) -> Json {
         Value::Number(n) => num(*n),
         Value::Bool(b) => json!(b),
         Value::String(s) => json!(s),
+        Value::Array(a) => Json::Array(a.iter().map(|&v| num(v)).collect()),
     }
 }
 
@@ -61,7 +66,41 @@ fn from_json(v: &Json) -> Value {
         Json::Number(n) => Value::Number(n.as_f64().unwrap()),
         Json::Bool(b) => Value::Bool(*b),
         Json::String(s) => Value::String(s.clone()),
+        Json::Array(a) => Value::Array(a.iter().map(|v| v.as_f64().unwrap()).collect()),
         other => panic!("no attribute value for {other}"),
+    }
+}
+
+fn arg(a: &Arg) -> Json {
+    match a {
+        Arg::Number(n) => num(*n),
+        Arg::Str(s) => json!(s),
+        Arg::Bool(b) => json!(b),
+        Arg::Numbers(v) => Json::Array(v.iter().map(|&n| num(n)).collect()),
+    }
+}
+
+/// A call as the oracle writes it: `[method, ...args]`, or
+/// `["=property", value]` for an assignment.
+fn call(c: &CanvasCall) -> Json {
+    match c {
+        CanvasCall::Call { method, args } => {
+            let mut out = vec![json!(method)];
+            out.extend(args.iter().map(arg));
+            Json::Array(out)
+        }
+        CanvasCall::Set { property, value } => json!([format!("={property}"), arg(value)]),
+    }
+}
+
+/// `mulberry32`, as the oracle seeds `Math.random` with it.
+fn mulberry32(seed: i32) -> impl FnMut() -> f64 {
+    let mut seed = seed as u32;
+    move || {
+        seed = seed.wrapping_add(0x6d2b_79f5);
+        let mut t = (seed ^ (seed >> 15)).wrapping_mul(1 | seed);
+        t = (t.wrapping_add((t ^ (t >> 7)).wrapping_mul(61 | t))) ^ t;
+        f64::from(t ^ (t >> 14)) / 4_294_967_296.0
     }
 }
 
@@ -150,6 +189,8 @@ fn attr_pairs(v: &Json) -> Vec<(String, Value)> {
 struct Handles {
     nodes: HashMap<String, Node>,
     names: HashMap<u64, String>,
+    /// Nodes with canvases, in creation order.
+    with_canvases: Vec<(String, Node)>,
 }
 
 impl Handles {
@@ -169,7 +210,17 @@ impl Handles {
     }
 }
 
-fn run_group(ops: &Json) -> Vec<Json> {
+fn canvas_name(kind: CanvasKind, stage: bool) -> &'static str {
+    match (kind, stage) {
+        (CanvasKind::Hit, true) => "bufferHit",
+        (CanvasKind::Scene, _) => "scene",
+        (CanvasKind::Hit, false) => "hit",
+    }
+}
+
+fn run_group(seed: i32, ops: &Json) -> Vec<Json> {
+    set_math_random(mulberry32(seed));
+    clear_color_keys();
     let handles = Rc::new(RefCell::new(Handles::default()));
     let log: Rc<RefCell<Vec<Json>>> = Rc::default();
     let mut results = Vec::new();
@@ -188,6 +239,9 @@ fn run_group(ops: &Json) -> Vec<Json> {
                 let h = op[1].as_str().unwrap().to_string();
                 let mut handles = handles.borrow_mut();
                 handles.names.insert(n.internal_id(), h.clone());
+                if !n.canvases().is_empty() {
+                    handles.with_canvases.push((h.clone(), n.clone()));
+                }
                 handles.nodes.insert(h, n);
             }
             "add" => {
@@ -273,12 +327,35 @@ fn run_group(ops: &Json) -> Vec<Json> {
                     op.get(3),
                 )
             }
+            "draw" => node().draw(),
+            "color" => {
+                r = match color_to_rgba(op[2].as_str()) {
+                    Some(c) => {
+                        json!({ "r": num(c.r), "g": num(c.g), "b": num(c.b), "a": num(c.a) })
+                    }
+                    None => Json::Null,
+                }
+            }
             "tf" => r = run_transform(&op[1]),
             other => panic!("unknown op {other}"),
         }
         let mut out = json!({ "r": r });
         if !log.borrow().is_empty() {
             out["events"] = Json::Array(log.borrow().clone());
+        }
+        let mut calls = serde_json::Map::new();
+        for (h, n) in &handles.borrow().with_canvases {
+            let stage = n.class_name() == ClassName::Stage;
+            for canvas in n.canvases().iter_mut() {
+                let taken = canvas.context.take_calls();
+                if !taken.is_empty() {
+                    let name = format!("{h}.{}", canvas_name(canvas.kind, stage));
+                    calls.insert(name, Json::Array(taken.iter().map(call).collect()));
+                }
+            }
+        }
+        if !calls.is_empty() {
+            out["calls"] = Json::Object(calls);
         }
         results.push(out);
     }
@@ -322,6 +399,13 @@ fn query(handles: &Handles, n: &Node, what: &str, arg: Option<&Json>) -> Json {
         "stage" => handles.name(n.stage().as_ref()),
         "position" => vector(n.position()),
         "size" => json!({ "width": num(n.width()), "height": num(n.height()) }),
+        "colorKey" => n.color_key().map_or(Json::Null, |k| json!(k)),
+        "hasFill" => json!(n.has_fill()),
+        "hasStroke" => json!(n.has_stroke()),
+        "hasHitStroke" => json!(n.has_hit_stroke()),
+        "shadowRGBA" => n.shadow_rgba().map_or(Json::Null, |c| json!(c)),
+        "useBufferCanvas" => json!(n.use_buffer_canvas()),
+        "shouldDrawHit" => json!(n.should_draw_hit()),
         other => panic!("unknown query {other}"),
     }
 }
@@ -347,12 +431,22 @@ struct Tally {
     max_abs_diff: f64,
     others: usize,
     failures: Vec<String>,
+    /// The allowed differences, by `<group> op <index><path>`.
+    known: BTreeSet<String>,
+    seen_known: Vec<String>,
+    /// The op being compared, for messages.
+    op: String,
 }
 
 impl Tally {
     fn fail(&mut self, ctx: &str, what: String) {
+        if self.known.contains(ctx) {
+            self.seen_known.push(format!("{ctx}: {what}"));
+            return;
+        }
         if self.failures.len() < 40 {
-            self.failures.push(format!("{ctx}: {what}"));
+            self.failures
+                .push(format!("{ctx}: {what} (op {})", self.op));
         } else if self.failures.len() == 40 {
             self.failures.push("…".into());
         }
@@ -370,10 +464,11 @@ impl Tally {
             } else {
                 u64::MAX
             };
-            self.max_ulps = self.max_ulps.max(d);
-            self.max_abs_diff = self.max_abs_diff.max((g - w).abs());
             if d > MAX_ULPS {
                 self.fail(ctx, format!("port {g:?}, Konva {w:?} ({d} ulps)"));
+            } else {
+                self.max_ulps = self.max_ulps.max(d);
+                self.max_abs_diff = self.max_abs_diff.max((g - w).abs());
             }
             return;
         }
@@ -418,28 +513,65 @@ fn scene_graph_matches_konva_10_9_1() {
     let groups = cases["groups"].as_array().unwrap();
     let recorded = oracle["groups"].as_array().unwrap();
     assert_eq!(groups.len(), recorded.len());
-    let mut tally = Tally::default();
-    let (mut ops, mut events) = (0, 0);
+    let mut tally = Tally {
+        known: include_str!("fixtures/konva-differences.txt")
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .map(String::from)
+            .collect(),
+        ..Tally::default()
+    };
+    let (mut ops, mut events, mut calls) = (0, 0, 0);
     for (group, want) in groups.iter().zip(recorded) {
         let name = group["name"].as_str().unwrap();
         assert_eq!(want["name"], name);
-        let got = run_group(&group["ops"]);
+        let got = run_group(group["seed"].as_i64().unwrap() as i32, &group["ops"]);
         let want = want["results"].as_array().unwrap();
         assert_eq!(got.len(), want.len(), "{name}");
         for (i, (g, w)) in got.iter().zip(want).enumerate() {
             ops += 1;
             events += w["events"].as_array().map_or(0, |e| e.len());
-            let op = &group["ops"][i];
-            tally.compare(&format!("{name} op {i} {op}"), g, w);
+            if let Some(by_canvas) = w["calls"].as_object() {
+                calls += by_canvas
+                    .values()
+                    .map(|c| c.as_array().unwrap().len())
+                    .sum::<usize>();
+            }
+            tally.op = group["ops"][i].to_string();
+            tally.compare(&format!("{name} op {i}"), g, w);
         }
     }
     println!(
-        "{ops} ops, {events} events; {} of {} numbers identical, max {} ulps (max abs diff {:e}); {} other values",
-        tally.identical, tally.numbers, tally.max_ulps, tally.max_abs_diff, tally.others
+        "{ops} ops, {events} events, {calls} context calls; {} of {} numbers identical, \
+         the others within {} ulps (max abs diff {:e}) except {} listed; {} other values",
+        tally.identical,
+        tally.numbers,
+        tally.max_ulps,
+        tally.max_abs_diff,
+        tally.seen_known.len(),
+        tally.others
     );
+    for known in &tally.seen_known {
+        println!("  listed: {known}");
+    }
     for failure in &tally.failures {
         println!("  {failure}");
     }
+    let seen: BTreeSet<&str> = tally
+        .seen_known
+        .iter()
+        .map(|k| k.split(": ").next().unwrap())
+        .collect();
+    let gone: Vec<&String> = tally
+        .known
+        .iter()
+        .filter(|k| !seen.contains(k.as_str()))
+        .collect();
+    assert!(
+        gone.is_empty(),
+        "listed differences no longer occur: {gone:?}"
+    );
     assert!(
         tally.failures.is_empty(),
         "the port differs from Konva 10.9.1"
@@ -462,6 +594,31 @@ fn hypot_matches_v8() {
     }
     println!(
         "{} of {} Math.hypot results identical",
+        pairs.len() - differ.len(),
+        pairs.len()
+    );
+    for d in differ.iter().take(10) {
+        println!("  {d}");
+    }
+    assert!(differ.is_empty());
+}
+
+/// `js::number_to_string` against `String(x)` in Node on seeded numbers
+/// of every magnitude: Konva writes shadow colors with it.
+#[test]
+fn number_to_string_matches_v8() {
+    let oracle: Json = serde_json::from_str(include_str!("fixtures/konva-10.9.1.json")).unwrap();
+    let pairs = oracle["numberStrings"].as_array().unwrap();
+    let mut differ = Vec::new();
+    for p in pairs {
+        let (x, want) = (f(&p[0]), p[1].as_str().unwrap());
+        let got = js::number_to_string(x);
+        if got != want {
+            differ.push(format!("{x:e}: port {got}, V8 {want}"));
+        }
+    }
+    println!(
+        "{} of {} Number#toString results identical",
         pairs.len() - differ.len(),
         pairs.len()
     );
