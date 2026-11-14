@@ -46,6 +46,10 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
   canvases (P2-4b), compared result by result and context call by context
   call with Konva itself. It draws nothing yet: Div has no 2D context (W2).
   Hit detection needs W7.
+- [samples/konva-shell](samples/konva-shell): a Konva demo shell on Div
+  (a stage, a layers panel, an inspector and a toolbar) over that port. It
+  is compared with the same app on Konva itself, drawing on Chromium's real
+  2D context, in pinned Chromium (milestone P2-5).
 
 ## Build
 
@@ -88,4 +92,11 @@ and rough.js installed by `npm ci` in `tools/rough-oracle`:
 
 ```
 node tools/board-reference/capture.mjs CHROME samples/board/tests/fixtures/fidelity/board-chromium.json
+```
+
+To recapture the Konva shell's reference, with Konva installed by
+`npm ci --prefix tools/konva-oracle`:
+
+```
+node tools/konva-reference/capture.mjs CHROME samples/konva-shell/tests/fixtures/fidelity/shell-chromium.json
 ```

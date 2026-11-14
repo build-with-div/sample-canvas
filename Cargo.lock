@@ -1341,6 +1341,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "konva-shell"
+version = "0.1.0"
+dependencies = [
+ "divui",
+ "konva",
+ "serde_json",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.184"
 source = "registry+https://github.com/rust-lang/crates.io-index"

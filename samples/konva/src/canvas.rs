@@ -81,6 +81,12 @@ impl Canvas {
             .set_property("imageSmoothingEnabled", image_smoothing);
     }
 
+    /// The size in CSS pixels, as `setSize` was last given it: the canvas
+    /// element's `style.width` and `style.height`.
+    pub fn logical_size(&self) -> (f64, f64) {
+        (self.logical_width, self.logical_height)
+    }
+
     /// `setSizeIfChanged(width, height)`.
     pub fn set_size_if_changed(&mut self, width: f64, height: f64) {
         if self.width != self.bitmap_size(width) || self.height != self.bitmap_size(height) {

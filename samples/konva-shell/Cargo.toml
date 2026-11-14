@@ -1,0 +1,23 @@
+[package]
+name = "konva-shell"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+publish = false
+description = "A Konva demo shell on Div: a stage, a layers panel and an inspector, drawing with the Konva port"
+license = "Apache-2.0"
+
+[[bin]]
+name = "konva-shell"
+path = "src/main.rs"
+
+# Div is pinned to one commit; bump `rev` here, in docs/probes/Cargo.toml and
+# in the root patch table together.
+[dependencies]
+divui = { git = "https://github.com/build-with-div/div", rev = "92ea25a0756dd3e22aa57266ae5ead49a1ff9d8f", features = ["desktop"] }
+konva = { path = "../konva" }
+
+[dev-dependencies]
+divui = { git = "https://github.com/build-with-div/div", rev = "92ea25a0756dd3e22aa57266ae5ead49a1ff9d8f", features = ["testing"] }
+# Exact float parsing, so Chromium's numbers are read back bit for bit.
+serde_json = { version = "1", features = ["float_roundtrip"] }
