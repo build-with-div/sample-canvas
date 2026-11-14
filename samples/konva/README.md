@@ -61,6 +61,9 @@ Not ported yet, and why:
 - Dragging and the stage's DOM event handling: Pointer Events (W14).
 - The device pixel ratio: Div exposes none (W12), so canvases use 1, as
   Konva does without a window (`// div-gap: W12`).
+- Konva's DOM: the stage's content element and each layer's `<canvas>`.
+  This crate doesn't depend on Div; that part is ported in
+  [samples/konva-shell](../konva-shell) (`src/stage_dom.rs`).
 - Caching (`cache()`), filters, gradients, patterns, custom `sceneFunc`,
   `hitFunc` and `clipFunc`, `clone`, selectors (`find`), and the
   object-valued attribute forms (`position`, `scale`, `offset` as

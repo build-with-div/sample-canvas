@@ -1,0 +1,291 @@
+{
+ "comment": "Scripted input for tests/fidelity_shell.rs and tools/konva-reference/capture.mjs. Coordinates are viewport CSS pixels; a click is a move, a press and a release at one point.",
+ "host": {
+  "width": 960,
+  "height": 600
+ },
+ "scenarios": [
+  {
+   "id": "select-and-inspect",
+   "steps": [
+    {
+     "click": [
+      100,
+      153
+     ]
+    },
+    {
+     "click": [
+      100,
+      57
+     ]
+    },
+    {
+     "click": [
+      100,
+      33
+     ]
+    },
+    {
+     "click": [
+      100,
+      177
+     ]
+    },
+    {
+     "key": "Escape"
+    }
+   ]
+  },
+  {
+   "id": "adjust-fields",
+   "steps": [
+    {
+     "click": [
+      100,
+      153
+     ]
+    },
+    {
+     "click": [
+      913,
+      65
+     ]
+    },
+    {
+     "click": [
+      913,
+      65
+     ]
+    },
+    {
+     "click": [
+      885,
+      93
+     ]
+    },
+    {
+     "click": [
+      913,
+      121
+     ]
+    },
+    {
+     "click": [
+      885,
+      149
+     ]
+    },
+    {
+     "click": [
+      885,
+      149
+     ]
+    },
+    {
+     "click": [
+      885,
+      149
+     ]
+    },
+    {
+     "click": [
+      913,
+      149
+     ]
+    }
+   ]
+  },
+  {
+   "id": "fill-and-visibility",
+   "steps": [
+    {
+     "click": [
+      100,
+      129
+     ]
+    },
+    {
+     "click": [
+      805,
+      177
+     ]
+    },
+    {
+     "click": [
+      773,
+      205
+     ]
+    },
+    {
+     "click": [
+      773,
+      205
+     ]
+    },
+    {
+     "click": [
+      100,
+      177
+     ]
+    },
+    {
+     "click": [
+      773,
+      177
+     ]
+    },
+    {
+     "click": [
+      773,
+      177
+     ]
+    }
+   ]
+  },
+  {
+   "id": "add-shapes",
+   "steps": [
+    {
+     "click": [
+      260,
+      30
+     ]
+    },
+    {
+     "click": [
+      320,
+      30
+     ]
+    },
+    {
+     "click": [
+      100,
+      105
+     ]
+    },
+    {
+     "click": [
+      260,
+      30
+     ]
+    },
+    {
+     "key": "ArrowRight"
+    },
+    {
+     "key": "ArrowRight"
+    },
+    {
+     "key": "ArrowDown"
+    }
+   ]
+  },
+  {
+   "id": "restack-and-delete",
+   "steps": [
+    {
+     "click": [
+      100,
+      153
+     ]
+    },
+    {
+     "click": [
+      380,
+      30
+     ]
+    },
+    {
+     "click": [
+      380,
+      30
+     ]
+    },
+    {
+     "click": [
+      440,
+      30
+     ]
+    },
+    {
+     "click": [
+      500,
+      30
+     ]
+    },
+    {
+     "click": [
+      100,
+      105
+     ]
+    },
+    {
+     "key": "Delete"
+    },
+    {
+     "key": "Escape"
+    },
+    {
+     "click": [
+      100,
+      33
+     ]
+    },
+    {
+     "click": [
+      380,
+      30
+     ]
+    }
+   ]
+  },
+  {
+   "id": "transform-containers",
+   "steps": [
+    {
+     "click": [
+      100,
+      33
+     ]
+    },
+    {
+     "key": "ArrowLeft"
+    },
+    {
+     "key": "ArrowUp"
+    },
+    {
+     "click": [
+      100,
+      57
+     ]
+    },
+    {
+     "click": [
+      913,
+      121
+     ]
+    },
+    {
+     "click": [
+      913,
+      121
+     ]
+    },
+    {
+     "click": [
+      913,
+      121
+     ]
+    },
+    {
+     "click": [
+      885,
+      149
+     ]
+    }
+   ]
+  }
+ ]
+}

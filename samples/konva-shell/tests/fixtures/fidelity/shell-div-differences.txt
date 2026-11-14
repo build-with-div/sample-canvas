@@ -1,0 +1,12 @@
+# The Konva shell's known differences from Konva 10.9.1 in Chromium 147, one
+# per line, under the gap (docs/framework-gaps.md) that owns each.
+# fidelity_shell.rs fails on a difference not listed here and on a listed
+# one that no longer occurs.
+
+## 16 A mousedown on a non-focusable element leaves focus where it was; Chromium clears it (framework: divui/src/document.rs:2377-2385)
+fill-and-visibility#5 focus: Div "toggle-visible", Chromium null
+add-shapes#3 focus: Div "add-circle", Chromium null
+restack-and-delete#6 focus: Div "delete", Chromium null
+restack-and-delete#7 focus: Div "delete", Chromium null
+restack-and-delete#8 focus: Div "delete", Chromium null
+restack-and-delete#9 focus: Div "delete", Chromium null

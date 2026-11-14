@@ -37,14 +37,14 @@ compositor of its own (design.md §9).
 | P2-4 | Port Konva 10.9.1's scene graph: `Transform`, the node tree (`Stage`, `Layer`, `Group`, `Shape`, `Rect`, `Circle`), attributes and change events, z-order, absolute transforms and positions, `getClientRect`, visibility, and Konva's event dispatch with bubbling | All of it: the scene graph is Konva's own data structure | Every result and event compared with Konva 10.9.1 in Node on the same scripts | none |
 | P2-4b | Port Konva's drawing of `Rect` and `Circle`: `drawScene` and `drawHit` for stages, layers, groups and shapes, the layer canvases, clips, fills, strokes, dashes, opacity, shadows (with Konva's color parser), and the color-key hit canvas | The scene and hit canvas call traces | Every context call compared with Konva 10.9.1 driving a recording context in Node, on the same scripts | W2 (recorded, no pixels), W6 and W2 `getTransform` (the isolation canvas, not ported), W7 (farbling check), W12 |
 | P2-4c | Konva's hit detection (`getIntersection`) and dragging | Hit detection needs pixels: it reads the hit canvas back | Waits for W2 and W7; dragging for W14 | W2, W7, W14 |
-| P2-5 | A Konva demo shell in Div: stage container, layer panel, inspector | The shell and input | Harness comparison of the shell against an HTML equivalent | W1, W2, W14 |
+| P2-5 | A Konva demo shell in Div: stage container, layers panel, inspector and toolbar over the Konva port, with Konva's DOM (the stage's content element and layer canvases) ported onto Div | The shell, its input, and Konva's draws (recorded) | The shell compared with the same app on Konva 10.9.1 itself in pinned Chromium, on its real 2D context, replayed over the DevTools protocol | W1, W2 (recorded), W2 and W6 (`perfectDrawEnabled` off), W11; new gap 17 (`background` shorthand, `user-select`). Not W14: picking shapes on the stage needs hit detection (P2-4c) |
 | P2-6 | A three.js WebGPU example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport | The shell; the scene runs on wgpu offscreen in a test | Shell comparison; the scene waits for W17 | W17, W13 |
 
 ## Swap-ins when Div lands features
 
 | Div lands | Sample change |
 | --- | --- |
-| W11 `requestAnimationFrame` (Tier 0.10) | The board's redraw moves to rAF. `frame_loop` is re-measured on it. |
+| W11 `requestAnimationFrame` (Tier 0.10) | The board's redraw moves to rAF, and the Konva port gets `batchDraw`, which the Konva shell uses. `frame_loop` is re-measured on it. |
 | W14 Pointer Events (Tier 0.12) | `mouse*` handlers become `pointer*` handlers using `offsetX`/`offsetY`, as the packages use them. |
 | W13 `ResizeObserver` (Tier 0.11) | The canvas bitmap follows its `device-pixel-content-box` size. |
 | Damage and partial raster (Tier 0.7) | Re-run probe P7. |
@@ -303,3 +303,79 @@ No new platform gap. The drawing needs W2 (logged as gap 1), the
 isolation canvas W6 and W2's `getTransform`, the farbling check W7, and
 the pixel ratio W12 (gap 8); framework-gaps.md lists the new scaffolding
 under gaps 1 and 8.
+
+### P2-5: a Konva demo shell
+
+`samples/konva-shell` is a Konva app on Div. It has a 480×360 stage in
+its container with two layers, a toolbar (add a rect or a circle, move the
+selection up or down, delete it), a layers panel listing every node
+topmost first, and an inspector. The inspector edits `x`, `y`, rotation,
+opacity, fill and visibility. Arrow keys move the selection, Delete
+removes it and Escape deselects. The scene is the Konva port.
+`src/stage_dom.rs` ports the part of Konva that touches the page:
+`Stage._buildDOM` and `_resizeDOM`, the canvas element `Stage.add` appends
+with the inline styles and size from `Canvas.ts`, and
+`Layer._checkVisibility`.
+
+**The reference.** `tools/konva-reference/shell.html` is the same app as a
+web page, on Konva 10.9.1 itself. It has the same DOM and inline styles and
+the same app code, step for step. Unlike P2-4b's oracle, Konva draws on
+Chromium's real 2D contexts: a `Proxy` around each context records every
+call and assignment and forwards it, and Konva's reads (such as
+`imageSmoothingEnabled` around a resize) go to the real context. Both
+sides seed `Math.random` alike, so the hit colors match. The page turns
+`Konva.autoDrawEnabled` off, as the port has no automatic drawing, and
+draws with `layer.batchDraw()`.
+
+`tools/konva-reference/capture.mjs` replays 6 scenarios (46 clicks and key
+presses) in Chrome for Testing 147.0.7727.50, with the runner P2-3 uses.
+`samples/konva-shell/tests/fidelity_shell.rs` replays them on Div and
+compares a snapshot after load and after every step.
+
+Measured on 14 November 2026 on Windows, using
+`cargo test -p konva-shell --test fidelity_shell -- --nocapture` (and in
+the full debug run). Re-running the capture gives a byte-identical
+fixture.
+
+| Compared | Matches |
+| --- | --- |
+| `getBoundingClientRect` of every element, including Konva's content `<div>` and layer `<canvas>` elements, bit for bit | 2,555 / 2,555 |
+| Their attributes (`role`, `aria-*`, `title`, `type`, `class`, `width`, `height`) | 2,555 / 2,555 |
+| Text of every element without child elements | 2,555 / 2,555 |
+| Element list, selection, Konva node tree with every attribute | 52 / 52 each |
+| Calls on each layer's scene and hit canvas since the last snapshot | 208 / 208: 4,121 calls, all 5,728 numbers bit-identical |
+| Focused element | 46 / 52 |
+
+The 6 focus differences are gap 16, as in the board. They are listed in
+`shell-div-differences.txt`; the test fails on any unlisted difference
+and on a listed one that no longer occurs.
+
+Negative checks: not hiding a hidden layer's canvas fails one box, and
+drawing only the scene canvas fails 30 of the 208 traces.
+
+**Scaffolding**, each piece labeled:
+
+- `// div-gap: W2` (in `samples/konva`): Konva draws into the port's
+  `CallRecorder`.
+- `// div-gap: W2 W6`: stroked shapes set `perfectDrawEnabled: false`, in
+  the shell and in the reference page alike, because a translucent shape
+  with a fill and a stroke is drawn through Konva's isolation canvas,
+  which the port can't draw.
+- `// div-gap: W11`: `batchDraw` waits for an animation frame in
+  Chromium; the shell draws the layer at once.
+- `// div-gap: 15`: border longhands with unitless widths.
+- `// div-gap: 17`: Konva assigns `style.background = 'transparent'` and
+  `style.userSelect = 'none'`. Div has neither property; the canvas gets
+  `background-color: transparent`, which computes the same, and the
+  content gets no `user-select`.
+
+New platform gap 17: Div has no `background` shorthand and no
+`user-select` (neither is a `StyleProperty`).
+
+What this does not show:
+
+- Pixels. The stage is blank on Div until W2.
+- Konva's pointer handling on the stage. Picking a shape on the canvas
+  reads the hit canvas back (W7), and dragging needs Pointer Events (W14);
+  both are P2-4c. The scenarios never press on the stage.
+- Text metrics. Every box has a fixed size.
