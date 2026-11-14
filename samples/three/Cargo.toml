@@ -1,0 +1,18 @@
+[package]
+name = "three"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+publish = false
+description = "A port of three.js 0.187.0's camera math and OrbitControls to Rust, measured against the original"
+# three.js is MIT; see THIRD_PARTY_LICENSES.md.
+license = "MIT"
+
+[dependencies]
+# fdlibm-derived sin, cos, tan, asin, acos, atan2 and pow, the lineage V8's
+# Math functions come from.
+libm = "0.2"
+
+[dev-dependencies]
+# Exact float parsing, so oracle numbers are read back bit for bit.
+serde_json = { version = "1", features = ["float_roundtrip"] }

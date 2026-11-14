@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>three.js oracle</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+  import { runCases } from './run.mjs';
+  window.runOracle = async () => {
+    const cases = await (await fetch('/cases.json')).json();
+    return JSON.stringify(runCases(cases));
+  };
+</script>

@@ -2497,6 +2497,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "three"
+version = "0.1.0"
+dependencies = [
+ "libm",
+ "serde_json",
+]
+
+[[package]]
 name = "tiny-xlib"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
