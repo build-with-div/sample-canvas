@@ -410,6 +410,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "board"
+version = "0.1.0"
+dependencies = [
+ "divui",
+ "roughjs",
+ "serde_json",
+]
+
+[[package]]
 name = "brotli-decompressor"
 version = "5.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

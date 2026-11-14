@@ -1,0 +1,21 @@
+# The board's known differences from Chromium 147, one per line, under the
+# gap (docs/framework-gaps.md) that owns each. fidelity_board.rs fails on a
+# difference not listed here and on a listed one that no longer occurs.
+
+## 16 A mousedown on a non-focusable element leaves focus where it was; Chromium clears it (framework: divui/src/document.rs:2377-2385)
+tools-by-click#2 focus: Div "tool-ellipse", Chromium null
+tools-by-click#3 focus: Div "tool-ellipse", Chromium null
+tools-by-click#4 focus: Div "tool-ellipse", Chromium null
+tools-by-click#6 focus: Div "tool-diamond", Chromium null
+tools-by-click#7 focus: Div "tool-diamond", Chromium null
+tools-by-click#8 focus: Div "tool-diamond", Chromium null
+tools-by-click#10 focus: Div "tool-line", Chromium null
+tools-by-click#11 focus: Div "tool-line", Chromium null
+tools-by-click#12 focus: Div "tool-line", Chromium null
+tools-by-click#13 focus: Div "tool-line", Chromium null
+tools-by-click#14 focus: Div "tool-line", Chromium null
+tools-by-click#15 focus: Div "tool-line", Chromium null
+tools-by-click#16 focus: Div "tool-line", Chromium null
+style-then-draw#7 focus: Div "fill-hachure", Chromium null
+style-then-draw#8 focus: Div "fill-hachure", Chromium null
+style-then-draw#9 focus: Div "fill-hachure", Chromium null

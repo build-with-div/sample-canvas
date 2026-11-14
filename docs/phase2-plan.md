@@ -33,7 +33,7 @@ compositor of its own (design.md §9).
 | P2-0 | Pin divui to Div `main` (`92ea25a0`), reseed `Cargo.lock`, re-run the probes, and add this plan | Probes P1–P7 | Probe results compared before and after the bump | none new |
 | P2-1 | Make the repository root a Cargo workspace. Port rough.js 4.6.6's generator: its seeded random (an LCG over `Math.imul`), geometry, fillers and ops, plus its four dependencies (`hachure-fill`, `path-data-parser`, `points-on-curve`, `points-on-path`) | All of it: pure geometry, no platform features | `OpSet` output compared with rough.js 4.6.6's own `generator` in Node 22, on the same shapes and seeds; report the maximum coordinate difference | none |
 | P2-2 | Port rough.js's canvas renderer (`RoughCanvas`) against the `CanvasRenderingContext2D` member names. Until W2 exists, its only backend is a call recorder labeled `// div-gap: W2` | The renderer logic and the call trace | The call trace compared with rough.js's `RoughCanvas` driving a recording proxy context in Node, on the same input | W1, W2 (logged, no pixels) |
-| P2-3 | An Excalidraw-style board shell in Div: toolbar, style panel, element list, shortcuts, and a scene model with pointer gestures. Coordinates come from `clientX`/`clientY` and `getBoundingClientRect`, as Excalidraw computes them | The shell, layout and input, tested headless | The shell compared with a matching HTML page in pinned Chromium, through the harness, where Div supports the CSS | W1, W2, W11, W14 (gaps logged) |
+| P2-3 | An Excalidraw-style board shell in Div: toolbar, style panel, element list, shortcuts, and a scene model with pointer gestures. Coordinates come from `clientX`/`clientY` and `getBoundingClientRect`, as Excalidraw computes them | The shell, layout and input, tested headless | The shell compared with a matching HTML page in pinned Chromium, replayed over the DevTools protocol (the runner sample-interactions uses) | W1, W2, W11, W14; new gaps 15 (border shorthands) and 16 (mousedown focus) |
 | P2-4 | Port Konva 10.9.1's core: `Transform`, the node tree (`Stage`, `Layer`, `Group`, `Shape`), attributes, absolute transforms, `getClientRect`, event bubbling, and drag state | The scene graph and events, tested headless | Transforms, client rects and draw traces compared with Konva 10.9.1 in Node, driving a recording proxy context | W2, W7 (the color-key hit canvas), W4, W10 |
 | P2-5 | A Konva demo shell in Div: stage container, layer panel, inspector | The shell and input | Harness comparison of the shell against an HTML equivalent | W1, W2, W14 |
 | P2-6 | A three.js WebGPU example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport | The shell; the scene runs on wgpu offscreen in a test | Shell comparison; the scene waits for W17 | W17, W13 |
@@ -134,3 +134,72 @@ This compares calls, not pixels. Pixels need W2; they are compared with
 rough.js in pinned Chromium when it lands (see the swap-ins above).
 
 No new platform gap: the renderer needs W1 and W2, already logged as gap 1.
+
+### P2-3: an Excalidraw-style board shell
+
+`samples/board` is a board on Div: a `<canvas>` under a toolbar of five
+tools, a style panel (stroke and background colors, stroke width,
+sloppiness, fill style) and a layers list. It has pointer gestures to
+create, select and move elements and keyboard shortcuts (tool keys,
+Escape, Delete). Scene coordinates are `clientX`/`clientY` minus the
+canvas's `getBoundingClientRect()`, as Excalidraw computes them. Each
+element is drawn with the rough.js port.
+
+The scene model is the board's own, in the style of Excalidraw's elements.
+It is not a port of Excalidraw.
+
+**The reference.** `tools/board-reference/board.html` is the same board as
+a web page. It has the same DOM and inline styles, implements the same
+model in JavaScript, and draws with rough.js 4.6.6 on a real `<canvas>`.
+Like Excalidraw, it uses pointer events and redraws in
+`requestAnimationFrame`. A `Proxy` around its 2D context records every
+call rough.js makes.
+
+`tools/board-reference/capture.mjs` replays 5 scripted scenarios (54
+mouse and key steps) in Chrome for Testing 147.0.7727.50 over the DevTools
+protocol. Input is trusted browser input, and the page settles after each
+step. The script writes a snapshot after load and after every step.
+`samples/board/tests/fidelity_board.rs` replays the same input on Div and
+compares the same snapshot.
+
+Measured on 13 November 2026 on Windows, using
+`cargo test -p board --test fidelity_board -- --nocapture`. Re-running the
+capture gives a byte-identical fixture.
+
+| Compared | Matches |
+| --- | --- |
+| `getBoundingClientRect` of every element with an id, bit for bit | 2,548 / 2,548 |
+| Their attributes (`role`, `aria-*`, `data-*`, `title`, `type`) | 2,548 / 2,548 |
+| Element list, tool, selection, scene elements | 59 / 59 each |
+| 2D context calls of the last redraw | 59 / 59, every number bit-identical |
+| Focused element | 43 / 59 |
+
+The 16 focus differences are one behavior, logged as new gap 16 in
+framework-gaps.md:
+
+- In Chromium, pressing the mouse on the canvas, which can't take focus,
+  clears focus.
+- In Div, the last clicked button keeps it (`divui/src/document.rs:2377-2385`).
+
+The test fails on any difference not listed in
+`board-div-differences.txt`, and on a listed one that no longer occurs.
+
+A negative check: changing the board's hachure gap from 4 to 4.5 times the
+stroke width fails 3 trace snapshots.
+
+**Scaffolding**, each piece labeled in `samples/board/src/shell.rs`:
+
+- `// div-gap: W1`: the `<canvas>` has no bitmap and is sized by CSS only.
+- `// div-gap: W2`: the redraw goes to a `CallRecorder`.
+- `// div-gap: W11`: the scene redraws as soon as it changes, not in a
+  frame callback.
+- `// div-gap: W14`: the board listens for `mouse*` where the page listens
+  for `pointer*`.
+- `// div-gap: 15`: border longhands with unitless widths, because Div
+  rejects the border shorthands (gap 15, sample-git gap 4).
+
+What this does not show:
+
+- Pixels. The canvas is blank on Div until W2, and the shell's own
+  rendering is not compared.
+- Text metrics. Every box in the board has a fixed size.

@@ -1,0 +1,23 @@
+[package]
+name = "board"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+publish = false
+description = "An Excalidraw-style board shell on Div, drawing with the rough.js port"
+license = "Apache-2.0"
+
+[[bin]]
+name = "board"
+path = "src/main.rs"
+
+# Div is pinned to one commit; bump `rev` here, in docs/probes/Cargo.toml and
+# in the root patch table together.
+[dependencies]
+divui = { git = "https://github.com/build-with-div/div", rev = "92ea25a0756dd3e22aa57266ae5ead49a1ff9d8f", features = ["desktop"] }
+roughjs = { path = "../roughjs" }
+
+[dev-dependencies]
+divui = { git = "https://github.com/build-with-div/div", rev = "92ea25a0756dd3e22aa57266ae5ead49a1ff9d8f", features = ["testing"] }
+# Exact float parsing, so Chromium's numbers are read back bit for bit.
+serde_json = { version = "1", features = ["float_roundtrip"] }

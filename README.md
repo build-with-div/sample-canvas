@@ -36,6 +36,10 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
   compared op by op with rough.js itself (milestone P2-1), and of its canvas
   renderer, whose 2D context calls are compared with rough.js's (P2-2). The
   renderer draws nothing yet: Div has no 2D context (W2).
+- [samples/board](samples/board): an Excalidraw-style board shell on Div
+  (toolbar, style panel, layers list, pointer gestures and shortcuts over a
+  `<canvas>`). It is compared with the same board as a web page in pinned
+  Chromium (milestone P2-3).
 
 ## Build
 
@@ -62,4 +66,12 @@ python -I tools/rough-oracle/make_cases.py
 cd tools/rough-oracle
 npm ci
 node oracle.cjs
+```
+
+To recapture the board's reference in Chromium, with `CHROME` the `chrome`
+binary of Chrome for Testing 147.0.7727.50 (the build Div's census pins)
+and rough.js installed by `npm ci` in `tools/rough-oracle`:
+
+```
+node tools/board-reference/capture.mjs CHROME samples/board/tests/fixtures/fidelity/board-chromium.json
 ```
