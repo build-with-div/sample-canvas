@@ -6,14 +6,16 @@
 //! `points-on-curve` and `points-on-path`. The generator is pure geometry and
 //! needs no web platform feature.
 //!
-//! rough.js's canvas renderer, which draws those operations with a
-//! `CanvasRenderingContext2D`, is a later milestone; it needs the 2D context
-//! Div does not have yet.
+//! It also ports rough.js's canvas renderer, `RoughCanvas`, which draws
+//! those operations with a `CanvasRenderingContext2D`. Div has no 2D context
+//! yet (W2), so the renderer drives the `RoughCanvasContext` trait, whose only
+//! implementation records the calls; see `canvas`.
 //!
 //! The port follows the JavaScript closely, including its evaluation order
 //! and JavaScript number semantics, so that a seeded drawing matches the
 //! original. `tests/oracle.rs` compares it with rough.js 4.6.6 itself.
 
+pub mod canvas;
 pub mod core;
 pub mod fillers;
 pub mod generator;
@@ -24,6 +26,9 @@ pub mod points_on_curve;
 pub mod points_on_path;
 pub mod renderer;
 
+pub use crate::canvas::{
+    CallRecorder, CanvasCall, CanvasFillRule, RoughCanvas, RoughCanvasContext,
+};
 pub use crate::core::{
     Drawable, Op, OpSet, OpSetType, OpType, Options, PathInfo, Point, ResolvedOptions,
 };

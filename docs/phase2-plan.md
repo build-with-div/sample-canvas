@@ -93,3 +93,44 @@ JavaScript math and compares bit for bit will meet it.
   arrays. rough.js's hachure rotation can leave rounding residue in an
   array the caller passed in, but it does not change rough.js's output for
   that call.
+
+### P2-2: the rough.js canvas renderer
+
+`samples/roughjs/src/canvas.rs` ports rough.js's `RoughCanvas`: `draw`,
+the per-shape methods, `fillSketch` and `_drawToContext`, including the
+`fixedDecimalPlaceDigits` rounding and the `evenodd` rule for curves,
+polygons and paths.
+
+The original calls `canvas.getContext('2d')`. Div has neither `<canvas>`
+(W1) nor `CanvasRenderingContext2D` (W2), so the port takes a context
+instead. Its scaffolding, both labeled `// div-gap: W2
+CanvasRenderingContext2D`:
+
+- `RoughCanvasContext`, a trait naming the 13 members rough.js uses
+  (`save`, `restore`, `strokeStyle`, `fillStyle`, `lineWidth`,
+  `setLineDash`, `lineDashOffset`, `beginPath`, `moveTo`, `lineTo`,
+  `bezierCurveTo`, `fill`, `stroke`) with their web arguments. It is an
+  interface, not a context.
+- `CallRecorder`, its only implementation, which records the calls and
+  draws nothing.
+
+When Div's `CanvasRenderingContext2d` lands, `RoughCanvas` takes it and
+both are deleted.
+
+The oracle drives rough.js 4.6.6's own `RoughCanvas` in Node with a
+`Proxy` as its context, which records every member access, including any
+the port does not model. Measured on 13 November 2026, on Windows with
+Node 22.18.0, using `cargo test -p roughjs --test canvas_oracle -- --nocapture`:
+
+- 19 calls, 811 context accesses: identical members, order and strings.
+  rough.js asks for one `'2d'` context and touches no member beyond the
+  13.
+- 2,765 of 2,769 numbers are bit-identical; the other 4 are within 2 ulps
+  (max 3.6e-15), in one ellipse, from the `sin`/`cos` difference above.
+- A path parse error: rough.js throws before touching the context; the
+  port returns the error and records no calls.
+
+This compares calls, not pixels. Pixels need W2; they are compared with
+rough.js in pinned Chromium when it lands (see the swap-ins above).
+
+No new platform gap: the renderer needs W1 and W2, already logged as gap 1.

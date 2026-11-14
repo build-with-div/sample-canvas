@@ -168,3 +168,51 @@ def groups():
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps({"groups": groups()}, indent=1) + "\n", encoding="utf-8", newline="\n")
 print(f"wrote {OUT}")
+
+
+CANVAS_OUT = OUT.parent / "canvas-cases.json"
+
+
+def canvas_cases():
+    """Calls on rough.canvas(), covering every branch of RoughCanvas.draw."""
+    seed = 100
+
+    def opts(**kw):
+        nonlocal seed
+        seed += 1
+        return {"seed": seed, **kw}
+
+    tri = [[10, 10], [90, 20], [40, 80]]
+    wave = [[10, 50], [60, 10], [110, 90], [160, 20]]
+    calls = [
+        call("line", 10, 10, 120, 60, options=opts()),
+        call("line", 10, 10, 120, 60, options=opts(stroke="none")),
+        call("line", 10, 10, 120, 60, options=opts(strokeLineDash=[5, 3], strokeLineDashOffset=2)),
+        call("line", 10, 10, 120, 60, options=opts(strokeLineDash=[], strokeLineDashOffset=0)),
+        call("rectangle", 10, 10, 60, 40, options=opts(fill="red")),
+        call("rectangle", 10, 10, 60, 40, options=opts(fill="red", fillWeight=3, fillLineDash=[2, 2], fillLineDashOffset=1)),
+        call("rectangle", 10, 10, 60, 40, options=opts(fill="red", fillStyle="solid")),
+        call("rectangle", 10, 10, 60, 40, options=opts(fill="red", fixedDecimalPlaceDigits=2)),
+        call("ellipse", 60, 60, 80, 50, options=opts(fill="green", fillStyle="solid", fixedDecimalPlaceDigits=0)),
+        call("circle", 50, 50, 60, options=opts(fill="blue", fillStyle="zigzag", stroke="none")),
+        call("polygon", tri, options=opts(fill="purple", fillStyle="solid")),
+        call("linearPath", tri, options=opts(strokeWidth=4)),
+        call("curve", wave, options=opts(fill="orange", fillStyle="solid")),
+        call("arc", 60, 60, 80, 60, 0, 4, True, options=opts(fill="teal", fillStyle="solid")),
+        call("path", "M10 10 h 50 v 50 h -50 z", options=opts(fill="teal", fillStyle="solid")),
+        call("path", "M10 10 h 50 v 50 h -50 z M100 10 h 50 v 50 h -50 z", options=opts(fill="teal", fillStyle="solid")),
+        call("path", "M10 10 L 50 50 # 2", options=opts()),
+    ]
+    return [
+        {"name": "canvas-seeded", "mathRandomSeed": 3, "config": None, "calls": calls},
+        {
+            "name": "canvas-config",
+            "mathRandomSeed": 4,
+            "config": {"options": {"seed": 9, "stroke": "#336", "strokeWidth": 2}},
+            "calls": [call("rectangle", 5, 5, 40, 30), call("ellipse", 30, 30, 40, 30)],
+        },
+    ]
+
+
+CANVAS_OUT.write_text(json.dumps({"groups": canvas_cases()}, indent=1) + "\n", encoding="utf-8", newline="\n")
+print(f"wrote {CANVAS_OUT}")

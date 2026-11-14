@@ -19,63 +19,12 @@
 //! glibc-derived `sin` and `cos` (`v8_use_libm_trig_functions`). See
 //! docs/phase2-plan.md.
 
+mod common;
+
+use common::{mulberry32, options, points, Tally};
 use roughjs::js::set_math_random;
-use roughjs::{Drawable, Options, Point, RoughGenerator};
+use roughjs::{Drawable, RoughGenerator};
 use serde_json::Value;
-
-/// mulberry32, as `oracle.cjs` defines it.
-fn mulberry32(seed: i32) -> impl FnMut() -> f64 {
-    let mut a = seed;
-    move || {
-        a = a.wrapping_add(0x6d2b_79f5);
-        let mut t = (a ^ ((a as u32 >> 15) as i32)).wrapping_mul(1 | a);
-        t = t.wrapping_add((t ^ ((t as u32 >> 7) as i32)).wrapping_mul(61 | t)) ^ t;
-        f64::from((t ^ ((t as u32 >> 14) as i32)) as u32) / 4_294_967_296.0
-    }
-}
-
-fn options(value: &Value) -> Option<Options> {
-    let map = value.as_object()?;
-    let mut o = Options::default();
-    for (key, v) in map {
-        let num = || v.as_f64().expect("number");
-        let text = || v.as_str().expect("string").to_string();
-        let flag = || v.as_bool().expect("bool");
-        match key.as_str() {
-            "seed" => o.seed = Some(num()),
-            "fill" => o.fill = Some(text()),
-            "fillStyle" => o.fill_style = Some(text()),
-            "stroke" => o.stroke = Some(text()),
-            "roughness" => o.roughness = Some(num()),
-            "bowing" => o.bowing = Some(num()),
-            "maxRandomnessOffset" => o.max_randomness_offset = Some(num()),
-            "strokeWidth" => o.stroke_width = Some(num()),
-            "fillWeight" => o.fill_weight = Some(num()),
-            "hachureAngle" => o.hachure_angle = Some(num()),
-            "hachureGap" => o.hachure_gap = Some(num()),
-            "dashOffset" => o.dash_offset = Some(num()),
-            "dashGap" => o.dash_gap = Some(num()),
-            "zigzagOffset" => o.zigzag_offset = Some(num()),
-            "curveFitting" => o.curve_fitting = Some(num()),
-            "curveStepCount" => o.curve_step_count = Some(num()),
-            "curveTightness" => o.curve_tightness = Some(num()),
-            "simplification" => o.simplification = Some(num()),
-            "preserveVertices" => o.preserve_vertices = Some(flag()),
-            "disableMultiStroke" => o.disable_multi_stroke = Some(flag()),
-            "disableMultiStrokeFill" => o.disable_multi_stroke_fill = Some(flag()),
-            other => panic!("cases.json uses option {other}, which this test does not map"),
-        }
-    }
-    Some(o)
-}
-
-fn point(v: &Value) -> Point {
-    [v[0].as_f64().unwrap(), v[1].as_f64().unwrap()]
-}
-
-fn points(v: &Value) -> Vec<Point> {
-    v.as_array().unwrap().iter().map(point).collect()
-}
 
 /// Runs one call; `Err` stands for a thrown error.
 fn run(generator: &mut RoughGenerator, call: &Value) -> Result<Drawable, String> {
@@ -115,110 +64,6 @@ fn run(generator: &mut RoughGenerator, call: &Value) -> Result<Drawable, String>
             .map_err(|e| format!("{e:?}"))?,
         other => panic!("unknown method {other}"),
     })
-}
-
-/// The largest difference allowed, in units in the last place.
-const MAX_ULPS: u64 = 2;
-
-#[derive(Default)]
-struct Tally {
-    numbers: usize,
-    identical: usize,
-    max_abs_diff: f64,
-    max_ulps: u64,
-    strings: usize,
-    strings_identical: usize,
-    mismatches: Vec<String>,
-    structural: Vec<String>,
-}
-
-fn ulps(a: f64, b: f64) -> u64 {
-    if a == b {
-        return 0;
-    }
-    if a.is_nan() || b.is_nan() || a.signum() != b.signum() {
-        return u64::MAX;
-    }
-    a.to_bits().abs_diff(b.to_bits())
-}
-
-impl Tally {
-    fn number(&mut self, ctx: &str, got: f64, want: &Value) {
-        // JSON.stringify writes NaN and infinities as null.
-        let want = want.as_f64().unwrap_or(f64::NAN);
-        self.numbers += 1;
-        if got == want || (got.is_nan() && want.is_nan()) || (!got.is_finite() && want.is_nan()) {
-            self.identical += 1;
-            return;
-        }
-        self.differs(ctx, got, want);
-    }
-
-    fn differs(&mut self, ctx: &str, got: f64, want: f64) {
-        let diff = (got - want).abs();
-        let ulps = ulps(got, want);
-        self.max_abs_diff = self.max_abs_diff.max(diff);
-        self.max_ulps = self.max_ulps.max(ulps);
-        if self.mismatches.len() < 5 {
-            self.mismatches.push(format!(
-                "{ctx}: port {got:?}, rough.js {want:?} ({ulps} ulps)"
-            ));
-        }
-    }
-
-    /// Compares strings token by token: text must match, and numbers are
-    /// held to the same rule as other numbers.
-    fn string(&mut self, ctx: &str, got: &str, want: &Value) {
-        let want = want.as_str().unwrap();
-        self.strings += 1;
-        if got == want {
-            self.strings_identical += 1;
-            return;
-        }
-        let (got_tokens, want_tokens) = (tokens(got), tokens(want));
-        if got_tokens.len() != want_tokens.len() {
-            self.structure(
-                ctx,
-                false,
-                format!("token counts differ: {got:?} vs {want:?}"),
-            );
-            return;
-        }
-        for (g, w) in got_tokens.iter().zip(&want_tokens) {
-            match (g.parse::<f64>(), w.parse::<f64>()) {
-                (Ok(a), Ok(b)) if a != b => self.differs(ctx, a, b),
-                (Ok(_), Ok(_)) => {}
-                _ if g != w => self.structure(ctx, false, format!("text differs: {g:?} vs {w:?}")),
-                _ => {}
-            }
-        }
-    }
-
-    fn structure(&mut self, ctx: &str, ok: bool, what: String) {
-        if !ok {
-            self.structural.push(format!("{ctx}: {what}"));
-        }
-    }
-}
-
-/// Splits a string into runs of number characters and runs of others.
-fn tokens(s: &str) -> Vec<&str> {
-    let is_num = |c: char| c.is_ascii_digit() || matches!(c, '.' | '-' | 'e' | '+');
-    let mut out = Vec::new();
-    let mut start = 0;
-    let mut prev: Option<bool> = None;
-    for (i, c) in s.char_indices() {
-        let kind = is_num(c);
-        if prev.is_some_and(|p| p != kind) {
-            out.push(&s[start..i]);
-            start = i;
-        }
-        prev = Some(kind);
-    }
-    if start < s.len() {
-        out.push(&s[start..]);
-    }
-    out
 }
 
 fn compare(generator: &RoughGenerator, ctx: &str, got: &Drawable, want: &Value, tally: &mut Tally) {
@@ -336,15 +181,5 @@ fn port_matches_rough_js_4_6_6() {
         "rough.js 4.6.6 oracle: {calls} calls; {} of {} numbers identical (max |diff| {:e}, max {} ulps); {} of {} strings identical",
         tally.identical, tally.numbers, tally.max_abs_diff, tally.max_ulps, tally.strings_identical, tally.strings
     );
-    for m in tally.structural.iter().chain(&tally.mismatches) {
-        println!("  {m}");
-    }
-    assert!(
-        tally.structural.is_empty(),
-        "the port's structure differs from rough.js 4.6.6"
-    );
-    assert!(
-        tally.max_ulps <= MAX_ULPS,
-        "a number differs by more than {MAX_ULPS} ulps"
-    );
+    tally.assert_gate();
 }
