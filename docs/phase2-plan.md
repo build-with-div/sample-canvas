@@ -38,7 +38,9 @@ compositor of its own (design.md §9).
 | P2-4b | Port Konva's drawing of `Rect` and `Circle`: `drawScene` and `drawHit` for stages, layers, groups and shapes, the layer canvases, clips, fills, strokes, dashes, opacity, shadows (with Konva's color parser), and the color-key hit canvas | The scene and hit canvas call traces | Every context call compared with Konva 10.9.1 driving a recording context in Node, on the same scripts | W2 (recorded, no pixels), W6 and W2 `getTransform` (the isolation canvas, not ported), W7 (farbling check), W12 |
 | P2-4c | Konva's hit detection (`getIntersection`) and dragging | Hit detection needs pixels: it reads the hit canvas back | Waits for W2 and W7; dragging for W14 | W2, W7, W14 |
 | P2-5 | A Konva demo shell in Div: stage container, layers panel, inspector and toolbar over the Konva port, with Konva's DOM (the stage's content element and layer canvases) ported onto Div | The shell, its input, and Konva's draws (recorded) | The shell compared with the same app on Konva 10.9.1 itself in pinned Chromium, on its real 2D context, replayed over the DevTools protocol | W1, W2 (recorded), W2 and W6 (`perfectDrawEnabled` off), W11; new gap 17 (`background` shorthand, `user-select`). Not W14: picking shapes on the stage needs hit detection (P2-4c) |
-| P2-6 | A three.js WebGPU example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport | The shell; the scene runs on wgpu offscreen in a test | Shell comparison; the scene waits for W17 | W17, W13 |
+| P2-6a | Port three.js 0.187.0's camera math (`Vector3`, `Quaternion`, `Euler`, `Matrix4`, `Spherical`), `PerspectiveCamera` and `OrbitControls` | All of it: pure math and input handling | Every result and event compared with three.js 0.187.0 running the same scripts in pinned Chromium | none |
+| P2-6b | A three.js example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport, with OrbitControls on the viewport | The shell, its layout and input | The shell compared with the same page on three.js in pinned Chromium, replayed over the DevTools protocol | W1, W13, W14 |
+| P2-6c | The three.js scene, drawn with wgpu | The scene renders offscreen in a test | Waits for W17 to present into the `<canvas>` | W17 |
 
 ## Swap-ins when Div lands features
 
@@ -379,3 +381,81 @@ What this does not show:
   reads the hit canvas back (W7), and dragging needs Pointer Events (W14);
   both are P2-4c. The scenarios never press on the stage.
 - Text metrics. Every box has a fixed size.
+
+### P2-6a: three.js math, camera and OrbitControls
+
+`samples/three` ports three.js 0.187.0's `Vector3`, `Quaternion`, `Euler`,
+`Matrix4` and `Spherical` (the operations a camera and its controls use),
+`PerspectiveCamera`, and `OrbitControls` with mouse, wheel and keyboard
+input, damping, auto-rotation and every limit. P2-6 was split: P2-6b is the
+shell around a viewport, and P2-6c is the scene, which waits for W17.
+
+**The oracle runs in Chromium, not Node.** `tools/three-oracle/make_cases.py`
+writes 42 seeded scripts (2,420 operations): 725 math operations, 160
+camera operations, and 40 OrbitControls sessions (1,535 operations) of
+drags, wheels, keys, direct calls, option changes and updates. `tools/three-oracle/oracle.mjs`
+serves `run.mjs` to a page in Chrome for Testing 147.0.7727.50, which runs
+the scripts on three.js 0.187.0 and returns every result. OrbitControls'
+element, document and window are stubs there, so the only part of
+Chromium the oracle uses is V8 and its `Math`. Real input is P2-6b's.
+
+The first oracle ran in Node 22 and showed that Node is not a Chromium
+oracle for this sample:
+
+- Node's V8 computes `Math.sin` and `Math.cos` with fdlibm. On 20,003
+  arguments, 1,389 of Node 22.18.0's 40,006 sines and cosines differed
+  from the correctly rounded values, and 377 arguments had a sine or
+  cosine that differed from `libm`'s. Chromium 147's are correctly rounded
+  except for some near-ties (the sample-charts session measured 33 of
+  26,018). This agrees with P2-1's finding.
+- On the 34 `Math.pow` calls of six OrbitControls sessions, Chromium 147
+  matched the correctly rounded value every time. `libm::pow` was 1 ulp
+  off on 3 of them.
+
+So `samples/three/src/jsmath.rs` computes `sin`, `cos` and `pow` in
+double-double arithmetic and rounds once. It uses Cody-Waite reduction
+and Taylor series, and a Newton step for the logarithm. The code is our
+own; no glibc (LGPL) code was read. Replaying the 2,867 `Math` calls
+Chromium made in six diverging sessions through the port's functions
+gave:
+
+- `tan`, `asin`, `acos`, `atan2` (from `libm`) and `sqrt`: all
+  bit-identical;
+- `pow`: all bit-identical;
+- `sin` and `cos`: all bit-identical except for four arguments, which
+  Chromium rounds away from the correct result. The exact values lie
+  0.4918–0.4960 ulp from the port's results, which are correctly rounded.
+
+Measured on 14 November 2026 on Windows, using
+`cargo test -p three --test oracle -- --nocapture` (and in the full debug
+run). Re-recording the cases and the oracle gives byte-identical fixtures.
+
+| Compared | Matches |
+| --- | --- |
+| Numbers (matrices, quaternions, Euler angles, positions, targets, polar and azimuth angles, distances, zoom) | 71,208 / 71,415 bit-identical; 125 within 2 ulps (largest difference 8.9e-16); 82 listed |
+| Other values (OrbitControls state, `update()` return values, the 1,158 `change`, `start` and `end` events in order) | 1,375 / 1,375 |
+
+The 82 listed differences come from two of Chromium's near-tie roundings:
+`cos(-1.4277848129543687)` in one session and `sin(-0.34670702622915633)`
+in another. In each, the camera carries a 1-ulp difference into every
+later operation. The translation of `matrixWorldInverse`, a difference of
+nearly equal terms, shows it most. They are listed with their cause in
+`three-differences.txt`. The test fails on any unlisted difference and on
+a listed one that no longer occurs. The other two near-ties stay within
+2 ulps.
+
+Negative checks: scaling `deltaMode` 1 wheel deltas by 15 instead of 16
+fails the test, as does going back to `libm`'s `sin` and `cos` in
+`math.rs`.
+
+No platform gap: this milestone uses none. Matching Chromium's `Math`
+is not Div's work (Div runs no JavaScript), but every port compared with
+Chromium bit for bit needs it. Chromium's near-tie roundings stay a
+recorded fidelity difference. The library that produces them is LGPL,
+so the port doesn't copy it.
+
+What this does not show:
+
+- Touch input, `zoomToCursor`, and orthographic cameras: not ported.
+- Real input events and the canvas element: P2-6b.
+- Pixels: P2-6c, waiting for W17.

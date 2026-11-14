@@ -50,6 +50,10 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
   (a stage, a layers panel, an inspector and a toolbar) over that port. It
   is compared with the same app on Konva itself, drawing on Chromium's real
   2D context, in pinned Chromium (milestone P2-5).
+- [samples/three](samples/three): a port of three.js 0.187.0's camera math,
+  `PerspectiveCamera` and `OrbitControls`, compared result by result and
+  event by event with three.js itself running in pinned Chromium
+  (milestone P2-6a).
 
 ## Build
 
@@ -99,4 +103,12 @@ To recapture the Konva shell's reference, with Konva installed by
 
 ```
 node tools/konva-reference/capture.mjs CHROME samples/konva-shell/tests/fixtures/fidelity/shell-chromium.json
+```
+
+To re-record the three.js oracle in Chromium:
+
+```
+python -I tools/three-oracle/make_cases.py
+npm ci --prefix tools/three-oracle
+node tools/three-oracle/oracle.mjs CHROME
 ```

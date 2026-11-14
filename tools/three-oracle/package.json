@@ -1,0 +1,9 @@
+{
+  "name": "three-oracle",
+  "private": true,
+  "description": "Runs three.js 0.187.0 in Node to record what samples/three's port is compared with.",
+  "type": "module",
+  "dependencies": {
+    "three": "0.187.0"
+  }
+}
