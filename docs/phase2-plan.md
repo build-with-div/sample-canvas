@@ -39,7 +39,7 @@ compositor of its own (design.md §9).
 | P2-4c | Konva's hit detection (`getIntersection`) and dragging | Hit detection needs pixels: it reads the hit canvas back | Waits for W2 and W7; dragging for W14 | W2, W7, W14 |
 | P2-5 | A Konva demo shell in Div: stage container, layers panel, inspector and toolbar over the Konva port, with Konva's DOM (the stage's content element and layer canvases) ported onto Div | The shell, its input, and Konva's draws (recorded) | The shell compared with the same app on Konva 10.9.1 itself in pinned Chromium, on its real 2D context, replayed over the DevTools protocol | W1, W2 (recorded), W2 and W6 (`perfectDrawEnabled` off), W11; new gap 17 (`background` shorthand, `user-select`). Not W14: picking shapes on the stage needs hit detection (P2-4c) |
 | P2-6a | Port three.js 0.187.0's camera math (`Vector3`, `Quaternion`, `Euler`, `Matrix4`, `Spherical`), `PerspectiveCamera` and `OrbitControls` | All of it: pure math and input handling | Every result and event compared with three.js 0.187.0 running the same scripts in pinned Chromium | none |
-| P2-6b | A three.js example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport, with OrbitControls on the viewport | The shell, its layout and input | The shell compared with the same page on three.js in pinned Chromium, replayed over the DevTools protocol | W1, W13, W14 |
+| P2-6b | A three.js example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport, with OrbitControls on the viewport | The shell, its layout and input | The shell compared with the same page on three.js in pinned Chromium, replayed over the DevTools protocol | W11, W13, W14, W17 (canvas sizing only), 12, 15, 16; new gaps 18 (`touch-action`), 19 (`WheelEvent`), 20 (`KeyboardEvent.code`, modifier keys) and 21 (focus fixup) |
 | P2-6c | The three.js scene, drawn with wgpu | The scene renders offscreen in a test | Waits for W17 to present into the `<canvas>` | W17 |
 
 ## Swap-ins when Div lands features
@@ -459,3 +459,98 @@ What this does not show:
 - Touch input, `zoomToCursor`, and orthographic cameras: not ported.
 - Real input events and the canvas element: P2-6b.
 - Pixels: P2-6c, waiting for W17.
+
+### P2-6b: a three.js example shell
+
+`samples/three-shell` is a three.js viewer shell on Div:
+
+- a toolbar: Reset, Auto-rotate, Damping, Settings, and a status line;
+- an objects pane whose rows move the controls' target to an object;
+- a splitter that resizes the pane and the viewport, clamped to
+  140–360 px;
+- a viewport holding a `<canvas>`, which the P2-6a port of OrbitControls
+  drives with the mouse, the wheel and the arrow keys;
+- a settings popover over the canvas: rotate speed, screen-space panning,
+  Close, and Escape.
+
+As in a three.js example, the viewport's size sets the camera's aspect and
+the canvas's size, as `renderer.setSize` writes it.
+
+**The reference.** `tools/three-reference/shell.html` is the same app as a
+web page, on three.js 0.187.0 itself. It has the same DOM and inline styles
+and the same app code, step for step. OrbitControls listens on the real
+`<canvas>`, so Chromium's own pointer, wheel and key events drive it. A
+`ResizeObserver` on the viewport resizes the camera and canvas.
+
+`tools/three-reference/capture.mjs` serves the page from `tools/` (its
+modules can't load from `file:`). It replays 4 scenarios (52 steps) in
+Chrome for Testing 147.0.7727.50, with the runner P2-3 uses. The steps are
+left, right, middle and shift drags, wheels, arrow keys with and without
+Shift, clicks, splitter drags and idle frames. After each step the page
+settles, then runs one animation frame, `controls.update()`.
+`samples/three-shell/tests/fidelity_shell.rs` replays the same steps on
+Div and compares a snapshot after load and after every step.
+
+Measured on 14 November 2026 on Windows, using
+`cargo test -p three-shell --test fidelity_shell -- --nocapture` (and in
+the full debug run). Re-running the capture gives a byte-identical fixture.
+
+| Compared | Matches |
+| --- | --- |
+| `getBoundingClientRect` of every element, bit for bit | 1,288 / 1,288 |
+| Their attributes (`role`, `aria-*`, `type`, the canvas's `width` and `height`) | 1,288 / 1,288 |
+| Text of every element without child elements | 1,288 / 1,288 |
+| Element list, selected object, the controls' events in order (48 events) | 56 / 56 each |
+| Camera (position, quaternion, aspect, zoom, projection matrix) and controls (target, state, rotate speed, flags) | 1,848 / 1,848 values; all 1,680 numbers bit-identical |
+| Focused element | 37 / 56 |
+
+The 19 focus differences are listed in `shell-div-differences.txt`. The
+test fails on any unlisted difference and on a listed one that no longer
+occurs.
+
+- 18 are gap 16: a press on the canvas or an object row clears focus in
+  Chromium and leaves it in Div.
+- 1 is new gap 21: clicking Close focuses it and hides the popover that
+  holds it. Chromium's focus fixup moves focus to the body; Div keeps it
+  on the hidden button.
+
+Negative checks: a 150 px minimum pane width fails 28 boxes, 8 attributes
+and 8 camera numbers. A stale canvas `clientHeight` for the controls fails 236 camera
+and 60 controls values, because panning reads it.
+
+**Scaffolding**, each piece labeled:
+
+- `// div-gap: W14`: the controls get `mousedown`/`mousemove`/`mouseup`
+  (with `pointerId` 1), where the page's OrbitControls listens for
+  `pointer*`. The splitter does the same.
+- `// div-gap: W13`: the shell resizes the camera and canvas after mounting
+  and after each splitter move, when the size changed. The page uses a
+  `ResizeObserver`.
+- `// div-gap: W11`: one `controls.update()` per step, on both sides, where
+  an app would update in its animation loop. It keeps damping and
+  auto-rotation deterministic.
+- `// div-gap: W17`: no renderer draws, on either side. Both size the
+  canvas as `renderer.setSize` would.
+- `// div-gap: 12`: OrbitControls cancels the canvas's `contextmenu`; Div
+  has none.
+- `// div-gap: 15`: border longhands with unitless widths.
+- `// div-gap: 18`: OrbitControls sets `touch-action: none`; Div has no
+  such property.
+- `// div-gap: 19`: Div's wheel events have no `deltaMode`; the controls
+  get 0.
+- `// div-gap: 20`: Div's key events have no `code` (the arrows' `key` is
+  used) and no key for Control alone.
+
+New platform gaps:
+
+- 18: no `touch-action`.
+- 19: `WheelEvent` has no `deltaMode`, and its deltas are `f32`.
+- 20: `KeyboardEvent` has no `code`, and a modifier key alone has no
+  `Key`.
+- 21: no focus fixup when the focused element is hidden.
+
+What this does not show:
+
+- Pixels. The viewport is blank on Div until W17 (P2-6c).
+- Touch input and pinch zoom: OrbitControls' touch paths are not ported.
+- Device pixel ratios other than 1 (W12).
