@@ -34,7 +34,8 @@ compositor of its own (design.md §9).
 | P2-1 | Make the repository root a Cargo workspace. Port rough.js 4.6.6's generator: its seeded random (an LCG over `Math.imul`), geometry, fillers and ops, plus its four dependencies (`hachure-fill`, `path-data-parser`, `points-on-curve`, `points-on-path`) | All of it: pure geometry, no platform features | `OpSet` output compared with rough.js 4.6.6's own `generator` in Node 22, on the same shapes and seeds; report the maximum coordinate difference | none |
 | P2-2 | Port rough.js's canvas renderer (`RoughCanvas`) against the `CanvasRenderingContext2D` member names. Until W2 exists, its only backend is a call recorder labeled `// div-gap: W2` | The renderer logic and the call trace | The call trace compared with rough.js's `RoughCanvas` driving a recording proxy context in Node, on the same input | W1, W2 (logged, no pixels) |
 | P2-3 | An Excalidraw-style board shell in Div: toolbar, style panel, element list, shortcuts, and a scene model with pointer gestures. Coordinates come from `clientX`/`clientY` and `getBoundingClientRect`, as Excalidraw computes them | The shell, layout and input, tested headless | The shell compared with a matching HTML page in pinned Chromium, replayed over the DevTools protocol (the runner sample-interactions uses) | W1, W2, W11, W14; new gaps 15 (border shorthands) and 16 (mousedown focus) |
-| P2-4 | Port Konva 10.9.1's core: `Transform`, the node tree (`Stage`, `Layer`, `Group`, `Shape`), attributes, absolute transforms, `getClientRect`, event bubbling, and drag state | The scene graph and events, tested headless | Transforms, client rects and draw traces compared with Konva 10.9.1 in Node, driving a recording proxy context | W2, W7 (the color-key hit canvas), W4, W10 |
+| P2-4 | Port Konva 10.9.1's scene graph: `Transform`, the node tree (`Stage`, `Layer`, `Group`, `Shape`, `Rect`, `Circle`), attributes and change events, z-order, absolute transforms and positions, `getClientRect`, visibility, and Konva's event dispatch with bubbling | All of it: the scene graph is Konva's own data structure | Every result and event compared with Konva 10.9.1 in Node on the same scripts | none |
+| P2-4b | Port Konva's drawing (`drawScene` for `Rect` and `Circle`, opacity, shadows), its color-key hit canvas, and drag state | The draw and hit-draw traces | Draw traces compared with Konva 10.9.1 driving a recording proxy context in Node | W2, W7 (the color-key hit canvas), W4, W10, W14 |
 | P2-5 | A Konva demo shell in Div: stage container, layer panel, inspector | The shell and input | Harness comparison of the shell against an HTML equivalent | W1, W2, W14 |
 | P2-6 | A three.js WebGPU example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport | The shell; the scene runs on wgpu offscreen in a test | Shell comparison; the scene waits for W17 | W17, W13 |
 
@@ -203,3 +204,38 @@ What this does not show:
 - Pixels. The canvas is blank on Div until W2, and the shell's own
   rendering is not compared.
 - Text metrics. Every box in the board has a fixed size.
+
+### P2-4: the Konva scene graph
+
+`samples/konva` ports Konva 10.9.1's scene graph: `Transform`, the node
+tree with attributes and `<attr>Change` events, z-order, absolute
+transforms and positions, `getClientRect` (strokes, non-scaling strokes,
+shadows, collapsed transforms, `relativeTo`), visibility, listening,
+opacity, and Konva's own event dispatch. The milestone is split: drawing,
+the hit canvas and dragging, which need W2, W4, W7 and W14, are P2-4b.
+
+The oracle (`tools/konva-oracle/oracle.mjs`) runs Konva 10.9.1 in Node
+without a DOM: automatic drawing is off, and the canvases Konva creates
+for its layers get a context that ignores every call. It runs scripts from
+`make_cases.py` and records every result and every event.
+`samples/konva/tests/oracle.rs` runs the same scripts on the port.
+
+Measured on 13 November 2026, on Windows with Node 22.18.0, using
+`cargo test --release -p konva --test oracle -- --nocapture`:
+
+- 5,832 results and 122 events: identical structure, strings, booleans,
+  nodes and event order.
+- 17,301 of 17,301 numbers are bit-identical.
+- The port's `Math.hypot`, written after V8's algorithm, matches Node on
+  4,000 of 4,000 seeded pairs bit for bit. Konva uses it to size
+  non-scaling strokes.
+
+The first run differed in one behavior: a layer's width and height are its
+stage's. The port now does the same.
+
+A negative check: letting events bubble past `cancelBubble` fails the
+test.
+
+No platform gap: the scene graph uses no web platform feature. Konva's
+events here are Konva's own; turning DOM pointer events into them needs
+W14 and comes with dragging in P2-4b.

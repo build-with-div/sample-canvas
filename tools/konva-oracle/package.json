@@ -1,0 +1,9 @@
+{
+  "name": "konva-oracle",
+  "private": true,
+  "description": "Runs Konva 10.9.1 on samples/konva/tests/fixtures cases to record the port's expected output.",
+  "license": "MIT",
+  "dependencies": {
+    "konva": "10.9.1"
+  }
+}

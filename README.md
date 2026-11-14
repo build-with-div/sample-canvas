@@ -40,6 +40,10 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
   (toolbar, style panel, layers list, pointer gestures and shortcuts over a
   `<canvas>`). It is compared with the same board as a web page in pinned
   Chromium (milestone P2-3).
+- [samples/konva](samples/konva): a port of Konva 10.9.1's scene graph
+  (transforms, the node tree, client rects and Konva's events), compared
+  result by result with Konva itself (milestone P2-4). Drawing and hit
+  detection come next; they need W2 and W7.
 
 ## Build
 
@@ -66,6 +70,14 @@ python -I tools/rough-oracle/make_cases.py
 cd tools/rough-oracle
 npm ci
 node oracle.cjs
+```
+
+To re-record the Konva oracle (Node 22):
+
+```
+python -I tools/konva-oracle/make_cases.py
+npm ci --prefix tools/konva-oracle
+node tools/konva-oracle/oracle.mjs
 ```
 
 To recapture the board's reference in Chromium, with `CHROME` the `chrome`
