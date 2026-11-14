@@ -18,7 +18,13 @@ the order they were first set.
     ["off", h, events or null]
     ["fire", h, type, bubble]
     ["get", h, what, arg?]         a query; see QUERIES
+    ["draw", h]                    h.draw(): the scene, then the hit canvas
+    ["color", null, str]           Konva.Util.colorToRGBA(str)
     ["tf", [[op, ...args], ...]]   a standalone Konva.Transform
+
+Each group has a seed for Math.random, which picks the shapes' hit color
+keys. The oracle records every call Konva makes on each canvas's 2D
+context, by canvas (`l1.scene`, `l1.hit`, `s.bufferHit`).
 
 The random choices are seeded, so the file is reproducible.
 """
@@ -51,6 +57,21 @@ QUERIES = [
     "position",
     "size",
     "decompose",
+    "colorKey",
+    "hasFill",
+    "hasStroke",
+    "hasHitStroke",
+    "shadowRGBA",
+    "useBufferCanvas",
+    "shouldDrawHit",
+]
+
+# Shadow colors, as Konva parses them for getShadowRGBA.
+SHADOW_COLORS = [
+    "black", "red", "RebeccaPurple", "transparent", "#abc", "#abcd", "#336699",
+    "#33669980", "rgb(10, 20, 30)", "rgba(10,20,30,0.5)", "rgb(10 20 30 / 25%)",
+    "rgb(50%, 10.5, 300)", "hsl(120, 50%, 50%)", "hsla(0.5turn 100% 25% / 0.3)",
+    "hsl(-90deg, 40%, 70%)", "not-a-color", "#12345", "rgb(1,2)", " #0f0 ",
 ]
 
 
@@ -89,6 +110,10 @@ def shape_attrs(rng, cls):
     else:
         a["radius"] = rng.choice([num(rng, 3, 60), num(rng, 3, 60), -num(rng, 3, 20)])
     if rng.random() < 0.6:
+        a["fill"] = rng.choice(["red", "#88aa33", "rgba(0,0,255,0.5)", ""])
+    if rng.random() < 0.1:
+        a["fillEnabled"] = False
+    if rng.random() < 0.6:
         a["stroke"] = rng.choice(["black", "#336699", ""])
     if rng.random() < 0.6:
         a["strokeWidth"] = rng.choice([0, 1, 3, 4.5, 10])
@@ -96,8 +121,28 @@ def shape_attrs(rng, cls):
         a["strokeScaleEnabled"] = False
     if rng.random() < 0.15:
         a["strokeEnabled"] = False
+    if rng.random() < 0.2:
+        a["dash"] = rng.choice([[5, 3], [10], [4, 2, 1, 2], []])
+        if rng.random() < 0.3:
+            a["dashOffset"] = num(rng, 0, 10)
+        if rng.random() < 0.2:
+            a["dashEnabled"] = False
+    if rng.random() < 0.15:
+        a["lineCap"] = rng.choice(["round", "square", "butt"])
+    if rng.random() < 0.15:
+        a["lineJoin"] = rng.choice(["round", "bevel", "miter"])
+    if rng.random() < 0.1:
+        a["miterLimit"] = rng.choice([2, 10])
+    if rng.random() < 0.15:
+        a["hitStrokeWidth"] = rng.choice([0, 8, "auto"])
+    if rng.random() < 0.1:
+        a["fillAfterStrokeEnabled"] = True
+    if rng.random() < 0.1:
+        a["globalCompositeOperation"] = rng.choice(["multiply", "source-over", "xor"])
+    if cls == "Rect" and rng.random() < 0.25:
+        a["cornerRadius"] = rng.choice([6, 100, -3, [4, 0, 8, 2], [3]])
     if rng.random() < 0.3:
-        a["shadowColor"] = "black"
+        a["shadowColor"] = rng.choice(SHADOW_COLORS)
         a["shadowBlur"] = rng.choice([0, 5, 12.5])
         a["shadowOffsetX"] = num(rng, -10, 10)
         a["shadowOffsetY"] = num(rng, -10, 10)
@@ -105,6 +150,8 @@ def shape_attrs(rng, cls):
             a["shadowOpacity"] = 0
         if rng.random() < 0.2:
             a["shadowEnabled"] = False
+        if rng.random() < 0.2:
+            a["shadowForStrokeEnabled"] = False
     if rng.random() < 0.15:
         a["visible"] = False
     if rng.random() < 0.15:
@@ -116,8 +163,19 @@ def shape_attrs(rng, cls):
     return a
 
 
-def container_attrs(rng):
+def container_attrs(rng, group=False):
     a = transform_attrs(rng)
+    if group and rng.random() < 0.2:
+        a["clipX"] = num(rng, -20, 20)
+        a["clipY"] = num(rng, -20, 20)
+        a["clipWidth"] = num(rng, 10, 200)
+        a["clipHeight"] = num(rng, 10, 200)
+    if group and rng.random() < 0.1:
+        a["globalCompositeOperation"] = rng.choice(["multiply", "destination-out"])
+    if not group and rng.random() < 0.15:
+        a["clearBeforeDraw"] = False
+    if not group and rng.random() < 0.15:
+        a["imageSmoothingEnabled"] = False
     if rng.random() < 0.1:
         a["visible"] = False
     if rng.random() < 0.1:
@@ -127,6 +185,24 @@ def container_attrs(rng):
     if rng.random() < 0.1:
         a["transformsEnabled"] = rng.choice(["position", "none"])
     return a
+
+
+def has_shadow(a):
+    return bool(
+        a.get("shadowEnabled", True)
+        and a.get("shadowOpacity", 1) != 0
+        and (a.get("shadowColor") or a.get("shadowBlur") or a.get("shadowOffsetX") or a.get("shadowOffsetY"))
+    )
+
+
+def needs_isolation(a, translucent):
+    """Konva's _useBufferCanvas: such a shape is drawn through a second
+    canvas, which needs getTransform and drawImage of a canvas (W2, W6) and
+    is not ported. Drawn scenes turn it off with perfectDrawEnabled."""
+    has_fill = a.get("fillEnabled", True) and bool(a.get("fill"))
+    has_stroke = a.get("strokeEnabled", True) and bool(a.get("strokeWidth", 2)) and bool(a.get("stroke"))
+    shadow = has_shadow(a) and a.get("shadowForStrokeEnabled", True)
+    return bool(has_fill and has_stroke and (translucent or a.get("opacity", 1) != 1 or shadow))
 
 
 def query_all(rng, ops, nodes, parents):
@@ -163,8 +239,12 @@ def query_all(rng, ops, nodes, parents):
             "position",
             "size",
             "attrs",
+            "shouldDrawHit",
         ]:
             ops.append(["get", h, what])
+        if h[0] in "rc":  # a shape
+            for what in ["colorKey", "hasFill", "hasStroke", "hasHitStroke", "shadowRGBA", "useBufferCanvas"]:
+                ops.append(["get", h, what])
 
 
 def random_tree(rng):
@@ -182,20 +262,24 @@ def random_tree(rng):
         counter[0] += 1
         return f"{prefix}{counter[0]}"
 
-    def fill(parent, depth):
+    def fill(parent, depth, translucent):
         children = []
         for _ in range(rng.randint(1, 3)):
             if depth < 3 and rng.random() < 0.45:
                 h = handle("g")
-                ops.append(["new", h, "Group", container_attrs(rng)])
+                attrs = container_attrs(rng, group=True)
+                ops.append(["new", h, "Group", attrs])
                 children.append(h)
                 parents[h] = parent
                 nodes.append(h)
-                fill(h, depth + 1)
+                fill(h, depth + 1, translucent or attrs.get("opacity", 1) != 1)
             else:
                 cls = rng.choice(["Rect", "Circle"])
                 h = handle("r" if cls == "Rect" else "c")
-                ops.append(["new", h, cls, shape_attrs(rng, cls)])
+                attrs = shape_attrs(rng, cls)
+                if needs_isolation(attrs, translucent):
+                    attrs["perfectDrawEnabled"] = False
+                ops.append(["new", h, cls, attrs])
                 children.append(h)
                 parents[h] = parent
                 nodes.append(h)
@@ -210,11 +294,13 @@ def random_tree(rng):
     layers = []
     for _ in range(rng.randint(1, 2)):
         h = handle("l")
-        ops.append(["new", h, "Layer", container_attrs(rng)])
+        attrs = container_attrs(rng)
+        ops.append(["new", h, "Layer", attrs])
         layers.append(h)
         parents[h] = "s"
         nodes.append(h)
-        fill(h, 1)
+        fill(h, 1, attrs.get("opacity", 1) != 1)
+    # Adding a layer to the stage sizes its canvases and draws it.
     ops.append(["add", "s", layers])
     query_all(rng, ops, nodes, parents)
 
@@ -232,7 +318,11 @@ def random_tree(rng):
         ops.append(["call", h, "setAbsolutePosition", {"x": num(rng, -100, 300), "y": num(rng, -100, 300)}])
         ops.append(["get", h, "attrs"])
         ops.append(["get", h, "absolutePosition", None])
+    ops.append(["draw", "s"])
     query_all(rng, ops, nodes, parents)
+    # Resizing the stage resizes and redraws every layer.
+    ops.append(["set", "s", {"width": rng.choice([640, 801.5, 0])}])
+    ops.append(["draw", rng.choice(layers)])
     return ops
 
 
@@ -435,6 +525,149 @@ def pairs(groups):
                 op[2] = list(op[2].items())
 
 
+def draw_cases():
+    """Each style Konva's rects and circles draw with, on one layer, then
+    redraws after changes."""
+    ops = [
+        ["new", "s", "Stage", {"width": 300, "height": 200}],
+        ["new", "l", "Layer", {"x": 5}],
+        ["new", "g", "Group", {"x": 10, "y": 10, "rotation": 15, "clipX": 0, "clipY": 0, "clipWidth": 120, "clipHeight": 80}],
+        ["new", "g2", "Group", {"scaleX": 2, "globalCompositeOperation": "multiply"}],
+    ]
+    styles = [
+        {"fill": "red"},
+        {"stroke": "black"},
+        {"fill": "#0f0", "stroke": "blue", "strokeWidth": 4},
+        {"fill": "red", "fillRule": "evenodd"},
+        {"fill": "red", "stroke": "black", "fillAfterStrokeEnabled": True},
+        {"fill": "red", "fillEnabled": False, "stroke": "black"},
+        {"fill": "red", "stroke": "black", "strokeEnabled": False},
+        {"stroke": "black", "strokeWidth": 0},
+        {"stroke": "black", "strokeScaleEnabled": False, "scaleX": 3},
+        {"stroke": "black", "dash": [6, 2], "dashOffset": 3, "lineCap": "round", "lineJoin": "bevel", "miterLimit": 4},
+        {"stroke": "black", "dash": [6, 2], "dashEnabled": False},
+        {"stroke": "black", "hitStrokeWidth": 12},
+        {"stroke": "black", "hitStrokeWidth": 0},
+        {"fill": "red", "hitStrokeWidth": 5},
+        {"fill": "red", "opacity": 0.5},
+        {"stroke": "black", "opacity": 0.5},
+        {"fill": "red", "shadowColor": "rgba(0,0,0,0.5)", "shadowBlur": 4, "shadowOffsetX": 2, "shadowOffsetY": -3, "shadowOpacity": 0.5},
+        {"stroke": "black", "shadowColor": "#336699", "shadowBlur": 2},
+        {"fill": "red", "stroke": "black", "shadowColor": "black", "shadowBlur": 3, "shadowForStrokeEnabled": False},
+        {"fill": "red", "stroke": "black", "opacity": 0.5, "perfectDrawEnabled": False},
+        {"fill": "red", "globalCompositeOperation": "xor"},
+        {"fill": "red", "listening": False},
+        {"fill": "red", "visible": False},
+    ]
+    shapes = []
+    for i, style in enumerate(styles):
+        for cls in ("Rect", "Circle"):
+            h = f"{cls[0].lower()}{i}"
+            attrs = {"x": 10 + i * 3, "y": 20, **style}
+            if cls == "Rect":
+                attrs.update({"width": 30, "height": 20})
+            else:
+                attrs["radius"] = 12
+            ops.append(["new", h, cls, attrs])
+            shapes.append(h)
+    for i, corner in enumerate([5, 50, -2, [4, 0, 8, 2], [3], 0]):
+        h = f"k{i}"
+        ops.append(["new", h, "Rect", {"width": 40 if i != 2 else -40, "height": 24, "cornerRadius": corner, "fill": "red", "stroke": "black"}])
+        shapes.append(h)
+    half = len(shapes) // 2
+    ops += [
+        ["add", "g", shapes[:half]],
+        ["add", "g2", shapes[half:]],
+        ["add", "l", ["g", "g2"]],
+        ["on", "l", "beforeDraw draw", "draw", False],
+        ["add", "s", ["l"]],
+    ]
+    for h in shapes:
+        for what in ["colorKey", "hasFill", "hasHitStroke", "shadowRGBA", "useBufferCanvas", "shouldDrawHit"]:
+            ops.append(["get", h, what])
+    ops += [
+        ["draw", "l"],
+        ["set", "r0", {"fill": "blue", "cornerRadius": 4}],
+        ["set", "c1", {"strokeWidth": 7, "radius": -5}],
+        ["draw", "r0"],
+        ["draw", "g2"],
+        ["set", "l", {"listening": False}],
+        ["draw", "l"],
+        ["set", "l", {"listening": True, "clearBeforeDraw": False, "imageSmoothingEnabled": False}],
+        ["draw", "l"],
+        ["call", "r1", "destroy", None],
+        ["new", "n1", "Circle", {"radius": 3, "fill": "black"}],
+        ["get", "n1", "colorKey"],
+        ["add", "g", ["n1"]],
+        ["set", "s", {"height": 90}],
+        ["set", "g", {"visible": False}],
+        ["draw", "s"],
+    ]
+    return ops
+
+
+def buffer_cases():
+    """When Konva would draw a shape through its isolation canvas. The
+    shapes are never drawn: the port can't (W2, W6)."""
+    ops = [["new", "p", "Group", {"opacity": 0.5}], ["new", "q", "Group", {}]]
+    combos = [
+        {"fill": "red", "stroke": "black"},
+        {"fill": "red", "stroke": "black", "opacity": 0.4},
+        {"fill": "red", "stroke": "black", "opacity": 1},
+        {"fill": "red", "stroke": "black", "opacity": 0.4, "perfectDrawEnabled": False},
+        {"fill": "red", "stroke": "black", "shadowColor": "black"},
+        {"fill": "red", "stroke": "black", "shadowColor": "black", "shadowForStrokeEnabled": False},
+        {"fill": "red", "stroke": "black", "shadowColor": "black", "shadowEnabled": False},
+        {"fill": "red", "stroke": "black", "shadowBlur": 3, "shadowOpacity": 0},
+        {"fill": "", "stroke": "black", "opacity": 0.4},
+        {"fill": "red", "stroke": "", "opacity": 0.4},
+        {"fill": "red", "fillEnabled": False, "stroke": "black", "opacity": 0.4},
+        {"fill": "red", "stroke": "black", "strokeWidth": 0, "opacity": 0.4},
+    ]
+    for i, combo in enumerate(combos):
+        for parent in ("p", "q"):
+            h = f"{parent}{i}"
+            ops.append(["new", h, "Rect", {"width": 10, "height": 10, **combo}])
+            ops.append(["add", parent, [h]])
+            for what in ["useBufferCanvas", "hasFill", "hasStroke", "shadowRGBA"]:
+                ops.append(["get", h, what])
+    return ops
+
+
+def color_cases(rng):
+    """Konva's own color parser, Util.colorToRGBA."""
+    names = ["black", "White", "rebeccapurple", "transparent", "constructor", "toString", "grey", "nonsense", ""]
+    hexes = ["#abc", "#ABCD", "#a1b2c3", "#a1b2c3d4", "#12", "#12345", "#gg0000", "#0g0", "abc", "#"]
+    functions = [
+        "rgb(1,2,3)", "RGBA(1, 2, 3, 0.5)", "rgb(1 2 3)", "rgb(1 2 3 / 50%)", "rgb(1 2 3/0.25)",
+        "rgb(1, 2 3)", "rgb(100%, 50%, 0%)", "rgb(-5, 300, 12.75)", "rgb(1,2)", "rgb(1,2,3,4,5)",
+        "rgb(1,,3)", "rgb(1e2, .5, 5.)", "rgb(+1, 2, 3)", "rgb(1, 2, 3", "rgb (1,2,3)", "rgb(1,2,3) ",
+        "rgb(50abc, 1, 1)", "rgb(0x10, 1, 1)", "rgb(1.2.3, 1, 1)", "rgba(1,2,3,150%)", "rgb(1e, 2, 3)",
+        "hsl(0, 100%, 50%)", "hsl(120 60% 70%)", "hsl(240deg, 50%, 25%)", "hsl(0.25turn, 50%, 50%)",
+        "hsl(1.5rad, 50%, 50%)", "hsl(100grad, 50%, 50%)", "hsla(30, 40%, 50%, 0.2)", "hsl(-30, 40%, 50%)",
+        "hsl(750, 40%, 50%)", "hsl(30, 40, 50)", "hsl(30px, 40%, 50%)", "hsl(1e400, 40%, 50%)",
+        "hsl(30, 140%, 50%)", "hsl(30 40% 50% / 0.5)", "hsl(30, 40%)", "  red  ", "\tblue\n",
+    ]
+    ops = [["color", None, c] for c in names + hexes + functions]
+    for _ in range(150):
+        kind = rng.choice(["rgb", "hsl", "hex"])
+        if kind == "rgb":
+            parts = [str(rng.choice([rng.randint(0, 255), num(rng, -10, 270, 2), f"{num(rng, 0, 100)}%"])) for _ in range(3)]
+            sep = rng.choice([", ", ",", " "])
+            alpha = rng.choice(["", f"{num(rng, 0, 1, 2)}", f"{rng.randint(0, 100)}%"])
+            s = sep.join(parts)
+            if alpha:
+                s += (" / " if sep == " " else sep) + alpha
+            ops.append(["color", None, f"rgb({s})"])
+        elif kind == "hsl":
+            h = rng.choice([str(num(rng, -720, 720, 1)), f"{num(rng, -2, 2, 2)}turn", f"{num(rng, -7, 7, 2)}rad"])
+            ops.append(["color", None, f"hsl({h}, {num(rng, 0, 100)}%, {num(rng, 0, 100)}%)"])
+        else:
+            digits = rng.choice([3, 4, 6, 8])
+            ops.append(["color", None, "#" + "".join(rng.choice("0123456789abcdefABCDEF") for _ in range(digits))])
+    return ops
+
+
 def main():
     rng = random.Random(10_9_1)
     groups = [{"name": "transform", "ops": transform_cases(rng)}]
@@ -443,6 +676,11 @@ def main():
     groups.append({"name": "collapsed", "ops": collapsed_cases()})
     groups.append({"name": "tree-ops", "ops": tree_ops_cases()})
     groups.append({"name": "events", "ops": events_cases()})
+    groups.append({"name": "draw", "ops": draw_cases()})
+    groups.append({"name": "buffer", "ops": buffer_cases()})
+    groups.append({"name": "colors", "ops": color_cases(rng)})
+    for i, group in enumerate(groups):
+        group["seed"] = 1000 + i
     pairs(groups)
     with open(OUT, "w", newline="\n") as f:
         json.dump({"groups": groups}, f, separators=(",", ":"))
