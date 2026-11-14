@@ -1,0 +1,17 @@
+[package]
+name = "konva"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+publish = false
+description = "A port of Konva 10.9.1's scene graph to Rust, measured against the original"
+# Konva is MIT; see THIRD_PARTY_LICENSES.md.
+license = "MIT"
+
+[dependencies]
+# fdlibm-derived sin, cos and acos, the lineage V8's Math functions come from.
+libm = "0.2"
+
+[dev-dependencies]
+# Exact float parsing, so oracle numbers are read back bit for bit.
+serde_json = { version = "1", features = ["float_roundtrip"] }
