@@ -1,0 +1,298 @@
+{
+ "comment": "Scripted input for tests/fidelity_board.rs and tools/board-reference/capture.mjs. Coordinates are viewport CSS pixels; a click is a move, a press and a release at one point.",
+ "host": {
+  "width": 960,
+  "height": 600
+ },
+ "scenarios": [
+  {
+   "id": "draw-rectangle-by-key",
+   "steps": [
+    {
+     "key": "r"
+    },
+    {
+     "mouse": "move",
+     "x": 300,
+     "y": 200
+    },
+    {
+     "mouse": "down",
+     "x": 300,
+     "y": 200
+    },
+    {
+     "mouse": "move",
+     "x": 350,
+     "y": 240
+    },
+    {
+     "mouse": "move",
+     "x": 420,
+     "y": 300
+    },
+    {
+     "mouse": "up",
+     "x": 420,
+     "y": 300
+    }
+   ]
+  },
+  {
+   "id": "tools-by-click",
+   "steps": [
+    {
+     "click": [
+      520,
+      39
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 300,
+     "y": 150
+    },
+    {
+     "mouse": "move",
+     "x": 400,
+     "y": 230
+    },
+    {
+     "mouse": "up",
+     "x": 400,
+     "y": 230
+    },
+    {
+     "click": [
+      480,
+      39
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 450,
+     "y": 300
+    },
+    {
+     "mouse": "move",
+     "x": 560,
+     "y": 400
+    },
+    {
+     "mouse": "up",
+     "x": 560,
+     "y": 400
+    },
+    {
+     "click": [
+      560,
+      39
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 250,
+     "y": 450
+    },
+    {
+     "mouse": "move",
+     "x": 400,
+     "y": 520
+    },
+    {
+     "mouse": "up",
+     "x": 400,
+     "y": 520
+    },
+    {
+     "key": "l"
+    },
+    {
+     "mouse": "down",
+     "x": 600,
+     "y": 500
+    },
+    {
+     "mouse": "move",
+     "x": 500,
+     "y": 420
+    },
+    {
+     "mouse": "up",
+     "x": 500,
+     "y": 420
+    }
+   ]
+  },
+  {
+   "id": "style-then-draw",
+   "steps": [
+    {
+     "click": [
+      440,
+      39
+     ]
+    },
+    {
+     "click": [
+      77,
+      65
+     ]
+    },
+    {
+     "click": [
+      145,
+      127
+     ]
+    },
+    {
+     "click": [
+      111,
+      189
+     ]
+    },
+    {
+     "click": [
+      111,
+      251
+     ]
+    },
+    {
+     "click": [
+      43,
+      313
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 300,
+     "y": 200
+    },
+    {
+     "mouse": "move",
+     "x": 500,
+     "y": 350
+    },
+    {
+     "mouse": "up",
+     "x": 500,
+     "y": 350
+    },
+    {
+     "click": [
+      111,
+      65
+     ]
+    }
+   ]
+  },
+  {
+   "id": "select-move-delete",
+   "steps": [
+    {
+     "key": "o"
+    },
+    {
+     "mouse": "down",
+     "x": 300,
+     "y": 200
+    },
+    {
+     "mouse": "move",
+     "x": 400,
+     "y": 300
+    },
+    {
+     "mouse": "up",
+     "x": 400,
+     "y": 300
+    },
+    {
+     "key": "r"
+    },
+    {
+     "mouse": "down",
+     "x": 450,
+     "y": 350
+    },
+    {
+     "mouse": "move",
+     "x": 550,
+     "y": 450
+    },
+    {
+     "mouse": "up",
+     "x": 550,
+     "y": 450
+    },
+    {
+     "key": "Escape"
+    },
+    {
+     "click": [
+      350,
+      250
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 350,
+     "y": 250
+    },
+    {
+     "mouse": "move",
+     "x": 380,
+     "y": 270
+    },
+    {
+     "mouse": "move",
+     "x": 390,
+     "y": 280
+    },
+    {
+     "mouse": "up",
+     "x": 390,
+     "y": 280
+    },
+    {
+     "click": [
+      856,
+      35
+     ]
+    },
+    {
+     "key": "Delete"
+    },
+    {
+     "key": "Backspace"
+    }
+   ]
+  },
+  {
+   "id": "zero-size-and-escape",
+   "steps": [
+    {
+     "key": "4"
+    },
+    {
+     "click": [
+      300,
+      300
+     ]
+    },
+    {
+     "key": "2"
+    },
+    {
+     "key": "Escape"
+    },
+    {
+     "click": [
+      300,
+      300
+     ]
+    }
+   ]
+  }
+ ]
+}
