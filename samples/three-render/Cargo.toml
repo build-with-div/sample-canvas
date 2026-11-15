@@ -1,0 +1,21 @@
+[package]
+name = "three-render"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+publish = false
+description = "A subset of three.js 0.187.0's WebGPURenderer on wgpu, compared with three.js on SwiftShader WebGPU in pinned Chromium"
+# three.js is MIT; see ../three/THIRD_PARTY_LICENSES.md.
+license = "MIT"
+
+[dependencies]
+three = { path = "../three" }
+# The WebGPU API in Rust. Vulkan only: the test runs on SwiftShader's
+# Vulkan driver, the rasterizer Chromium's WebGPU oracle uses
+# (docs/webgpu-oracle.md).
+wgpu = { version = "30.0.2", default-features = false, features = ["std", "parking_lot", "vulkan", "wgsl"] }
+pollster = "0.4"
+
+[dev-dependencies]
+png = "0.18"
+serde_json = { version = "1", features = ["float_roundtrip"] }

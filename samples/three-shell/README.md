@@ -13,8 +13,9 @@ The camera and its controls are the three.js port in
 [samples/three](../three). The viewport's size sets the camera's aspect and
 the canvas's size, as a three.js example's resize handler does.
 
-The canvas shows nothing yet: Div has no WebGPU canvas (W17), so the scene
-is milestone P2-6c.
+The canvas shows nothing yet, because Div has no WebGPU canvas (W17).
+[samples/three-render](../three-render) draws the scene offscreen with wgpu
+(P2-6c).
 
 ```
 cargo run -p three-shell

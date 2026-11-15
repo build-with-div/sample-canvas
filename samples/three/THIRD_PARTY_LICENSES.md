@@ -1,9 +1,20 @@
 # Third-party licenses
 
-`samples/three` ports code from three.js 0.187.0
-(https://github.com/mrdoob/three.js), `src/math/`, `src/core/Object3D.js`,
-`src/cameras/` and `examples/jsm/controls/OrbitControls.js`, under the MIT
-license:
+`samples/three` and `samples/three-render` port code from three.js 0.187.0
+(https://github.com/mrdoob/three.js) under the MIT license:
+
+- `src/math/`, including `Color.js` and `ColorManagement.js`;
+- `src/core/Object3D.js` and `src/core/BufferGeometry.js`;
+- `src/cameras/`;
+- `src/geometries/BoxGeometry.js` and `SphereGeometry.js`;
+- `src/objects/Mesh.js`, `src/scenes/Scene.js` and
+  `src/materials/MeshBasicMaterial.js`;
+- `src/renderers/common/` and `src/renderers/webgpu/`, as far as
+  `samples/three-render` uses them;
+- `examples/jsm/controls/OrbitControls.js`.
+
+`samples/three-render/src/wgsl` holds shaders that three.js's node builder
+generated. The license is:
 
 ```
 The MIT License

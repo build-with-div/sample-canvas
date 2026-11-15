@@ -2,8 +2,13 @@
 
 A port of [three.js](https://threejs.org) 0.187.0's camera math and
 `OrbitControls` to Rust (milestone P2-6a). It is the part of a three.js
-viewer that needs no platform feature, and it is what the three.js shell
-(P2-6b) and the WebGPU scene (P2-6c, waiting for W17) will drive.
+viewer that needs no platform feature. The three.js shell (P2-6b) drives
+it. So does the scene that [three-render](../three-render) draws with wgpu
+(P2-6c), for which it also has:
+
+- `Color` (`src/color.rs`);
+- `BoxGeometry` and `SphereGeometry` (`src/geometry.rs`);
+- a `Scene` of `Mesh`es with `MeshBasicMaterial` (`src/object.rs`).
 
 **Math** (`src/math.rs`): `Vector2`, `Vector3`, `Quaternion`, `Euler` (all
 six orders), `Matrix4` (`compose`, `decompose`, `lookAt`,

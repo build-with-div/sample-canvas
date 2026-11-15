@@ -8,21 +8,30 @@
 //!   matrices and the WebGL and WebGPU clip spaces;
 //! - `orbit`: `OrbitControls` for the mouse, the wheel and the keys;
 //! - `jsmath`: `Math.sin`, `Math.cos` and `Math.pow` rounded as Chromium
-//!   rounds them.
+//!   rounds them;
+//! - `color`, `geometry` and `object`: `Color` with color management,
+//!   `BoxGeometry`, `SphereGeometry`, and a `Scene` of `Mesh`es with
+//!   `MeshBasicMaterial`, which `three-render` draws with wgpu.
 //!
 //! `tests/oracle.rs` compares every result with three.js itself in pinned
-//! Chromium on the same scripts. Rendering the scene needs WebGPU on a `<canvas>`
-//! (W17), which Div doesn't have yet.
+//! Chromium on the same scripts. `three-render`'s test compares the
+//! geometry and the rendered scene.
 
 pub mod camera;
+pub mod color;
+pub mod geometry;
 pub mod jsmath;
 pub mod math;
+pub mod object;
 pub mod orbit;
 
 pub use camera::{PerspectiveCamera, View};
+pub use color::Color;
+pub use geometry::{BufferGeometry, Index};
 pub use math::{
     CoordinateSystem, Euler, EulerOrder, Matrix4, Quaternion, Spherical, Vector2, Vector3,
 };
+pub use object::{Mesh, MeshBasicMaterial, Scene};
 pub use orbit::{
     ControlsEvent, Element, Modifiers, MouseAction, OrbitControls, PointerEvent, State, WheelEvent,
 };
