@@ -1,0 +1,29 @@
+# The three.js shell's known differences from three.js 0.187.0 in Chromium
+# 147, one per line, under the gap (docs/framework-gaps.md) that owns each.
+# fidelity_shell.rs fails on a difference not listed here and on a listed
+# one that no longer occurs.
+
+## 16 A mousedown on a non-focusable element leaves focus where it was; Chromium clears it (framework: divui/src/document.rs:2377-2385)
+# Pressing on the <canvas> or an object row after clicking a button.
+objects-and-damping#3 focus: Div "damping", Chromium null
+objects-and-damping#4 focus: Div "damping", Chromium null
+objects-and-damping#5 focus: Div "damping", Chromium null
+objects-and-damping#6 focus: Div "damping", Chromium null
+objects-and-damping#7 focus: Div "damping", Chromium null
+objects-and-damping#8 focus: Div "damping", Chromium null
+objects-and-damping#12 focus: Div "auto-rotate", Chromium null
+objects-and-damping#13 focus: Div "auto-rotate", Chromium null
+splitter-and-settings#7 focus: Div "speed-2", Chromium null
+splitter-and-settings#8 focus: Div "speed-2", Chromium null
+splitter-and-settings#9 focus: Div "speed-2", Chromium null
+splitter-and-settings#11 focus: Div "screen-space", Chromium null
+splitter-and-settings#12 focus: Div "screen-space", Chromium null
+splitter-and-settings#13 focus: Div "screen-space", Chromium null
+splitter-and-settings#14 focus: Div "screen-space", Chromium null
+splitter-and-settings#15 focus: Div "screen-space", Chromium null
+splitter-and-settings#16 focus: Div "screen-space", Chromium null
+splitter-and-settings#17 focus: Div "screen-space", Chromium null
+
+## 21 Hiding the focused element leaves it focused; Chromium's focus fixup moves focus to the body (engine + framework: no focus fixup when the focused element loses its box)
+# Clicking Close focuses it and hides the popover that holds it.
+splitter-and-settings#19 focus: Div "close-settings", Chromium null

@@ -1,0 +1,306 @@
+{
+ "comment": "Scripted input for tests/fidelity_shell.rs and tools/three-reference/capture.mjs. Coordinates are viewport CSS pixels; a click is a move, a press and a release at one point; a wheel is [x, y, deltaY] in pixels; an idle step is only the frame that follows every step.",
+ "host": {
+  "width": 960,
+  "height": 600
+ },
+ "scenarios": [
+  {
+   "id": "rotate-and-zoom",
+   "steps": [
+    {
+     "mouse": "down",
+     "x": 583,
+     "y": 320
+    },
+    {
+     "mouse": "move",
+     "x": 603,
+     "y": 330
+    },
+    {
+     "mouse": "move",
+     "x": 643,
+     "y": 350
+    },
+    {
+     "mouse": "up",
+     "x": 643,
+     "y": 350
+    },
+    {
+     "wheel": [
+      583,
+      320,
+      100
+     ]
+    },
+    {
+     "wheel": [
+      583,
+      320,
+      -240
+     ]
+    },
+    {
+     "key": "ArrowLeft"
+    },
+    {
+     "key": "ArrowUp",
+     "modifiers": [
+      "shift"
+     ]
+    },
+    {
+     "key": "ArrowDown"
+    }
+   ]
+  },
+  {
+   "id": "pan-dolly-reset",
+   "steps": [
+    {
+     "mouse": "down",
+     "x": 500,
+     "y": 300,
+     "button": "right"
+    },
+    {
+     "mouse": "move",
+     "x": 540,
+     "y": 280
+    },
+    {
+     "mouse": "move",
+     "x": 560,
+     "y": 250
+    },
+    {
+     "mouse": "up",
+     "x": 560,
+     "y": 250,
+     "button": "right"
+    },
+    {
+     "mouse": "down",
+     "x": 600,
+     "y": 300,
+     "button": "middle"
+    },
+    {
+     "mouse": "move",
+     "x": 600,
+     "y": 340
+    },
+    {
+     "mouse": "up",
+     "x": 600,
+     "y": 340,
+     "button": "middle"
+    },
+    {
+     "mouse": "down",
+     "x": 450,
+     "y": 400,
+     "modifiers": [
+      "shift"
+     ]
+    },
+    {
+     "mouse": "move",
+     "x": 420,
+     "y": 380,
+     "modifiers": [
+      "shift"
+     ]
+    },
+    {
+     "mouse": "up",
+     "x": 420,
+     "y": 380,
+     "modifiers": [
+      "shift"
+     ]
+    },
+    {
+     "click": [
+      52,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "id": "objects-and-damping",
+   "steps": [
+    {
+     "click": [
+      100,
+      84
+     ]
+    },
+    {
+     "click": [
+      236,
+      20
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 583,
+     "y": 320
+    },
+    {
+     "mouse": "move",
+     "x": 623,
+     "y": 320
+    },
+    {
+     "mouse": "move",
+     "x": 663,
+     "y": 330
+    },
+    {
+     "mouse": "up",
+     "x": 663,
+     "y": 330
+    },
+    {
+     "idle": true
+    },
+    {
+     "idle": true
+    },
+    {
+     "click": [
+      144,
+      20
+     ]
+    },
+    {
+     "idle": true
+    },
+    {
+     "idle": true
+    },
+    {
+     "click": [
+      100,
+      108
+     ]
+    },
+    {
+     "click": [
+      100,
+      60
+     ]
+    }
+   ]
+  },
+  {
+   "id": "splitter-and-settings",
+   "steps": [
+    {
+     "mouse": "down",
+     "x": 203,
+     "y": 300
+    },
+    {
+     "mouse": "move",
+     "x": 253,
+     "y": 300
+    },
+    {
+     "mouse": "move",
+     "x": 303,
+     "y": 310
+    },
+    {
+     "mouse": "up",
+     "x": 303,
+     "y": 310
+    },
+    {
+     "click": [
+      328,
+      20
+     ]
+    },
+    {
+     "click": [
+      925,
+      97
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 600,
+     "y": 400
+    },
+    {
+     "mouse": "move",
+     "x": 640,
+     "y": 410
+    },
+    {
+     "mouse": "up",
+     "x": 640,
+     "y": 410
+    },
+    {
+     "click": [
+      860,
+      125
+     ]
+    },
+    {
+     "mouse": "down",
+     "x": 500,
+     "y": 450,
+     "button": "right"
+    },
+    {
+     "mouse": "move",
+     "x": 530,
+     "y": 470
+    },
+    {
+     "mouse": "up",
+     "x": 530,
+     "y": 470,
+     "button": "right"
+    },
+    {
+     "key": "Escape"
+    },
+    {
+     "mouse": "down",
+     "x": 303,
+     "y": 300
+    },
+    {
+     "mouse": "move",
+     "x": 100,
+     "y": 300
+    },
+    {
+     "mouse": "up",
+     "x": 100,
+     "y": 300
+    },
+    {
+     "click": [
+      328,
+      20
+     ]
+    },
+    {
+     "click": [
+      860,
+      153
+     ]
+    }
+   ]
+  }
+ ]
+}

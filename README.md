@@ -54,6 +54,10 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
   `PerspectiveCamera` and `OrbitControls`, compared result by result and
   event by event with three.js itself running in pinned Chromium
   (milestone P2-6a).
+- [samples/three-shell](samples/three-shell): a three.js example shell on
+  Div (a toolbar, resizable panes and a settings popover over a `<canvas>`
+  that OrbitControls drives). It is compared with the same page on
+  three.js itself in pinned Chromium (milestone P2-6b).
 
 ## Build
 
@@ -111,4 +115,11 @@ To re-record the three.js oracle in Chromium:
 python -I tools/three-oracle/make_cases.py
 npm ci --prefix tools/three-oracle
 node tools/three-oracle/oracle.mjs CHROME
+```
+
+To recapture the three.js shell's reference, with three.js installed by
+`npm ci --prefix tools/three-oracle`:
+
+```
+node tools/three-reference/capture.mjs CHROME samples/three-shell/tests/fixtures/fidelity/shell-chromium.json
 ```
