@@ -77,8 +77,11 @@ jobs:
       # SwiftShader's Vulkan driver from Chrome for Testing 147.0.7727.50,
       # pinned by hash: samples/three-render's test renders on it, the
       # rasterizer of its Chromium oracle (docs/webgpu-oracle.md). Linux
-      # loads it with the system's Vulkan loader (libvulkan1, above);
-      # Windows with Chrome for Testing's vulkan-1.dll, on PATH.
+      # loads it with the system's Vulkan loader (libvulkan1, above), found
+      # through VK_DRIVER_FILES. Windows loads it with Chrome for Testing's
+      # vulkan-1.dll, on PATH. Runner jobs there are elevated, and an
+      # elevated Vulkan loader ignores VK_DRIVER_FILES and VK_ICD_FILENAMES,
+      # so the driver is registered under HKLM, as an installed driver is.
       - uses: actions/cache@v5
         with:
           path: out/swiftshader
@@ -90,6 +93,16 @@ jobs:
           if [ "$RUNNER_OS" = Windows ]; then
             cygpath -w "$PWD/out/swiftshader" >> "$GITHUB_PATH"
           fi
+
+      - name: Register SwiftShader with the Vulkan loader
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $manifest = Join-Path $PWD 'out\swiftshader\vk_swiftshader_icd.json'
+          $key = 'HKLM:\SOFTWARE\Khronos\Vulkan\Drivers'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name $manifest -Value 0 -PropertyType DWord -Force | Out-Null
+          Get-Item -Path $key | Format-List
 
       # The toolchain comes from rust-toolchain.toml.
       - name: Install Rust
@@ -113,3 +126,7 @@ jobs:
 
       - name: Test
         run: cargo test --locked -- --nocapture --test-threads 1
+        env:
+          # The Vulkan loader's errors and warnings, should the SwiftShader
+          # driver fail to load.
+          VK_LOADER_DEBUG: error,warn
