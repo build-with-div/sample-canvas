@@ -40,7 +40,8 @@ compositor of its own (design.md §9).
 | P2-5 | A Konva demo shell in Div: stage container, layers panel, inspector and toolbar over the Konva port, with Konva's DOM (the stage's content element and layer canvases) ported onto Div | The shell, its input, and Konva's draws (recorded) | The shell compared with the same app on Konva 10.9.1 itself in pinned Chromium, on its real 2D context, replayed over the DevTools protocol | W1, W2 (recorded), W2 and W6 (`perfectDrawEnabled` off), W11; new gap 17 (`background` shorthand, `user-select`). Not W14: picking shapes on the stage needs hit detection (P2-4c) |
 | P2-6a | Port three.js 0.187.0's camera math (`Vector3`, `Quaternion`, `Euler`, `Matrix4`, `Spherical`), `PerspectiveCamera` and `OrbitControls` | All of it: pure math and input handling | Every result and event compared with three.js 0.187.0 running the same scripts in pinned Chromium | none |
 | P2-6b | A three.js example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport, with OrbitControls on the viewport | The shell, its layout and input | The shell compared with the same page on three.js in pinned Chromium, replayed over the DevTools protocol | W11, W13, W14, W17 (canvas sizing only), 12, 15, 16; new gaps 18 (`touch-action`), 19 (`WheelEvent`), 20 (`KeyboardEvent.code`, modifier keys) and 21 (focus fixup) |
-| P2-6c | The three.js scene, drawn with wgpu | The scene renders offscreen in a test | Waits for W17 to present into the `<canvas>` | W17 |
+| P2-6c-0 | Verify the WebGPU oracle: SwiftShader WebGPU in pinned Chromium on Windows and Linux, its minimal flags and its run-to-run determinism | Nothing in Div: Chromium only | Hashes of six scenes over 20 launches per OS, and Windows against Linux | W17 (the oracle) |
+| P2-6c | The three.js scene, drawn with wgpu | The scene renders offscreen in a test | Compared with the P2-6c-0 oracle, exactly, since its output is byte-stable; waits for W17 to present into the `<canvas>` | W17 |
 
 ## Swap-ins when Div lands features
 
@@ -554,3 +555,37 @@ What this does not show:
 - Pixels. The viewport is blank on Div until W17 (P2-6c).
 - Touch input and pinch zoom: OrbitControls' touch paths are not ported.
 - Device pixel ratios other than 1 (W12).
+
+### P2-6c-0: the WebGPU oracle
+
+P2-6c compares a wgpu rendering with three.js's `WebGPURenderer` in
+Chromium. That needs Chromium to render WebGPU deterministically on a
+software adapter. [webgpu-oracle.md](webgpu-oracle.md) records the check,
+and `tools/webgpu-oracle` holds the scripts and measurements.
+
+Measured with Chrome for Testing 147.0.7727.50, headless, on an i9-12900KF,
+under Windows 11 and Ubuntu on WSL2:
+
+- `--disable-gpu`, the fidelity runners' default, leaves no WebGPU adapter.
+- The smallest flag sets that give a SwiftShader adapter whose canvas
+  textures read back:
+  - Windows: `--enable-unsafe-webgpu --use-webgpu-adapter=swiftshader`.
+  - Linux: `--enable-unsafe-webgpu --enable-features=Vulkan
+    --use-angle=vulkan`.
+  - These come from 33 launches per OS: `--disable-gpu`, plus every subset
+    of five candidate flags.
+  - On Linux without the last two flags, configuring a canvas destroys the
+    device.
+- Six scenes:
+  - four raw WebGPU scenes on a `GPUCanvasContext`: triangles, 4× MSAA,
+    blending, and a shader using transcendental built-ins;
+  - two three.js 0.187.0 `WebGPURenderer` scenes: the shell's objects with
+    basic and with standard materials and lights.
+- Each scene rendered twice per launch over 20 launches, giving one
+  distinct SHA-256 of 40 per scene on each OS. The Windows and Linux bytes
+  were identical, with 0 pixels differing in every scene.
+
+So P2-6c compares exactly, with no tolerance. Whether another CPU gives the
+same bytes is not measured. Whether wgpu does is P2-6c's measurement: it can
+run on the SwiftShader Vulkan driver that ships with Chrome for Testing,
+but WGSL reaches it through naga, not Tint.
