@@ -5,6 +5,10 @@
 // Testing at device scale factor 1 with an emulated focused window and
 // returns { cdp, version, close }. `cdp.evaluate(expression)` awaits
 // promises and returns values by value.
+//
+// `gpu` replaces the default `--disable-gpu` with other GPU flags:
+// tools/webgpu-oracle passes the flags that give WebGPU a SwiftShader
+// adapter, which `--disable-gpu` removes (docs/webgpu-oracle.md).
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -68,13 +72,13 @@ class Cdp {
   }
 }
 
-export async function launch(chromePath, { width, height }) {
+export async function launch(chromePath, { width, height, gpu = ["--disable-gpu"] }) {
   const profile = mkdtempSync(join(tmpdir(), "div-fidelity-"));
   const chrome = spawn(
     chromePath,
     [
       "--headless=new",
-      "--disable-gpu",
+      ...gpu,
       "--force-device-scale-factor=1",
       "--hide-scrollbars",
       "--no-first-run",

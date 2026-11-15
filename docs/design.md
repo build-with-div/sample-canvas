@@ -522,11 +522,17 @@ Two complementary methods, using the same input both ways:
   opaque and premultiplied, placed under clips, transforms, scrolling and
   overlapping Div content, at device scale 1 and 2. Compare exactly with
   Chromium, which must run WebGPU on a software adapter (SwiftShader).
-  Whether pinned Chromium 147 exposes that headlessly has not been checked.
-  Checking it is the first step of W17 (decision 5).
+  Pinned Chromium 147 does so headlessly, on Windows and Linux, with
+  byte-identical output from run to run and across the two OSes
+  ([webgpu-oracle.md](webgpu-oracle.md)). That check was the first step of
+  W17 (decision 5).
 - **Shader rasterization.** Rasterization differs between GPUs, so content
-  such as a three.js scene is compared with a stated tolerance, never
-  claimed exact.
+  such as a three.js scene is compared with the SwiftShader oracle, never
+  with a hardware GPU. That oracle's output is byte-stable
+  ([webgpu-oracle.md](webgpu-oracle.md)), so the comparison aims for exact.
+  A tolerance is allowed only when a measurement sets it: Chromium's own
+  variance, or a documented rasterization rule between SwiftShader and
+  wgpu's adapter. Such a tolerance is recorded with its numbers.
 
 ## 8. Sample apps (ports)
 

@@ -123,3 +123,11 @@ To recapture the three.js shell's reference, with three.js installed by
 ```
 node tools/three-reference/capture.mjs CHROME samples/three-shell/tests/fixtures/fidelity/shell-chromium.json
 ```
+
+To check the WebGPU oracle (SwiftShader in Chromium) for its flags and
+run-to-run determinism ([docs/webgpu-oracle.md](docs/webgpu-oracle.md)):
+
+```
+node tools/webgpu-oracle/probe.mjs CHROME
+node tools/webgpu-oracle/capture.mjs CHROME 20 capture.json
+```
