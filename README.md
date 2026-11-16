@@ -58,6 +58,11 @@ Phase 2, porting the packages, follows [docs/phase2-plan.md](docs/phase2-plan.md
   Div (a toolbar, resizable panes and a settings popover over a `<canvas>`
   that OrbitControls drives). It is compared with the same page on
   three.js itself in pinned Chromium (milestone P2-6b).
+- [samples/three-render](samples/three-render): a subset of three.js's
+  `WebGPURenderer` on wgpu, which draws the shell's scene offscreen
+  (milestone P2-6c). It is compared exactly with three.js's own
+  `WebGPURenderer` on SwiftShader in pinned Chromium, with both sides on
+  SwiftShader.
 
 ## Build
 
@@ -122,6 +127,15 @@ To recapture the three.js shell's reference, with three.js installed by
 
 ```
 node tools/three-reference/capture.mjs CHROME samples/three-shell/tests/fixtures/fidelity/shell-chromium.json
+```
+
+To recapture the three.js scene's reference and its shaders
+(samples/three-render):
+
+```
+python -I tools/three-render-reference/make_scene.py
+node tools/three-render-reference/capture.mjs CHROME
+node tools/three-render-reference/record_wgsl.mjs CHROME
 ```
 
 To check the WebGPU oracle (SwiftShader in Chromium) for its flags and

@@ -124,14 +124,17 @@ from.
   i9-12900KF. Whether a CI runner's CPU gives the same bytes has not been
   measured. Recording the oracle once, as for the other fixtures, avoids
   depending on it.
-- **wgpu matching these bytes.** Chromium compiles WGSL with Tint, and wgpu
-  with naga, so the same WGSL can reach SwiftShader as different SPIR-V.
-  wgpu running on another Vulkan driver, such as lavapipe, also rasterizes
-  differently. Both Chrome for Testing builds ship SwiftShader's Vulkan
-  driver (`vk_swiftshader.dll` or `libvk_swiftshader.so`, with
-  `vk_swiftshader_icd.json`; SwiftShader is Apache-2.0). P2-6c can point
-  wgpu's Vulkan backend at that driver, so both sides share a rasterizer.
-  Whether the bytes then match is P2-6c's measurement.
+- **wgpu matching these bytes in general.** Chromium compiles WGSL with
+  Tint, and wgpu with naga, so the same WGSL can reach SwiftShader as
+  different SPIR-V. wgpu on another Vulkan driver, such as lavapipe, also
+  rasterizes differently. Both Chrome for Testing builds ship SwiftShader's
+  Vulkan driver (`vk_swiftshader.dll` or `libvk_swiftshader.so`, with
+  `vk_swiftshader_icd.json`; SwiftShader is Apache-2.0).
+  - P2-6c ran wgpu 30.0.2's Vulkan backend on that driver.
+  - Its 31 three.js views matched Chromium byte for byte on Windows and
+    Linux ([phase2-plan.md](phase2-plan.md), P2-6c).
+  - So did this note's four raw scenes, with a scratch probe on Windows.
+  - Other shaders are not covered.
 - **Device scale factors other than 1, and the composited page.** These
   captures read textures, not screenshots. Composition is §7.3's separate
   comparison.

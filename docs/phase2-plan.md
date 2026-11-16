@@ -41,7 +41,7 @@ compositor of its own (design.md §9).
 | P2-6a | Port three.js 0.187.0's camera math (`Vector3`, `Quaternion`, `Euler`, `Matrix4`, `Spherical`), `PerspectiveCamera` and `OrbitControls` | All of it: pure math and input handling | Every result and event compared with three.js 0.187.0 running the same scripts in pinned Chromium | none |
 | P2-6b | A three.js example shell: toolbar, resizable panes, and a popover over a `<canvas>` viewport, with OrbitControls on the viewport | The shell, its layout and input | The shell compared with the same page on three.js in pinned Chromium, replayed over the DevTools protocol | W11, W13, W14, W17 (canvas sizing only), 12, 15, 16; new gaps 18 (`touch-action`), 19 (`WheelEvent`), 20 (`KeyboardEvent.code`, modifier keys) and 21 (focus fixup) |
 | P2-6c-0 | Verify the WebGPU oracle: SwiftShader WebGPU in pinned Chromium on Windows and Linux, its minimal flags and its run-to-run determinism | Nothing in Div: Chromium only | Hashes of six scenes over 20 launches per OS, and Windows against Linux | W17 (the oracle) |
-| P2-6c | The three.js scene, drawn with wgpu | The scene renders offscreen in a test | Compared with the P2-6c-0 oracle, exactly, since its output is byte-stable; waits for W17 to present into the `<canvas>` | W17 |
+| P2-6c | The three.js scene, drawn with wgpu: a subset of `WebGPURenderer` (`MeshBasicMaterial`, box and sphere geometry, color management, render list order, pipeline state) | The scene renders offscreen in a test, on SwiftShader's Vulkan driver | 31 views compared byte for byte with three.js's `WebGPURenderer` on SwiftShader in pinned Chromium (the P2-6c-0 oracle); presenting into the `<canvas>` waits for W17 | W17 (`navigator.gpu`, `GPUCanvasContext`; gaps 13 and 14) |
 
 ## Swap-ins when Div lands features
 
@@ -552,7 +552,8 @@ New platform gaps:
 
 What this does not show:
 
-- Pixels. The viewport is blank on Div until W17 (P2-6c).
+- Pixels. The viewport is blank on Div until W17. P2-6c renders the scene
+  offscreen.
 - Touch input and pinch zoom: OrbitControls' touch paths are not ported.
 - Device pixel ratios other than 1 (W12).
 
@@ -589,3 +590,117 @@ So P2-6c compares exactly, with no tolerance. Whether another CPU gives the
 same bytes is not measured. Whether wgpu does is P2-6c's measurement: it can
 run on the SwiftShader Vulkan driver that ships with Chrome for Testing,
 but WGSL reaches it through naga, not Tint.
+
+### P2-6c: the three.js scene, drawn with wgpu
+
+[samples/three-render](../samples/three-render) is a subset of three.js
+0.187.0's `WebGPURenderer` on wgpu 30.0.2. It draws the three.js shell's
+scene into a `RenderTarget` and reads it back. The scene is the shell's
+objects on a floor:
+
+- a box;
+- two spheres (32×16 and 12×8 segments);
+- a floor slab, which the origin marker cuts into.
+
+[samples/three](../samples/three) gains:
+
+- `Color`, with sRGB-to-linear color management (`Math.pow` from
+  `jsmath`);
+- `BoxGeometry` and `SphereGeometry`, computed in `f64` and stored as
+  `f32`;
+- a `Scene` of `Mesh`es with `MeshBasicMaterial`.
+
+The renderer ports:
+
+- the clear color;
+- the opaque render list's order (`painterSortStable` on each bounding
+  sphere's clip-space `z`);
+- the switch to WebGPU's clip space;
+- the uniform groups;
+- the pipeline state;
+- the readback.
+
+The two shaders are the WGSL three.js's node builder generates for the
+material. `tools/three-render-reference/record_wgsl.mjs` records them from
+three.js in Chromium, and they are not ported from TSL.
+
+The oracle is three.js's own `WebGPURenderer` on SwiftShader in pinned
+Chromium (P2-6c-0). The port runs on SwiftShader too, through wgpu's Vulkan
+backend, on the SwiftShader Vulkan driver that Chrome for Testing ships:
+
+- `vk_swiftshader.dll` or `libvk_swiftshader.so`, Apache-2.0;
+- the files are byte-identical in the full and headless-shell zips (same
+  sizes and CRC-32s);
+- CI installs them with `tools/webgpu-oracle/install_swiftshader.py`, which
+  checks pinned SHA-256s.
+
+The views are every distinct camera state and canvas size in the shell's
+Chromium reference (P2-6b): 31 of 56 snapshots, at 654×560, 704×560,
+754×560 and 814×560.
+
+Measured with Chrome for Testing 147.0.7727.50 and an i9-12900KF, running
+`cargo test -p three-render --test fidelity_scene -- --nocapture` (debug,
+`VK_DRIVER_FILES` set to the driver's manifest):
+
+| | Windows 11 | Ubuntu on WSL2 |
+| --- | --- | --- |
+| wgpu adapter | SwiftShader Device (Subzero) | SwiftShader Device (Subzero) |
+| Geometry: attribute and index hashes matching three.js | 20/20 | 20/20 |
+| Views byte-identical to three.js | 31/31 | 31/31 |
+| Pixels | 12,927,040/12,927,040 | 12,927,040/12,927,040 |
+
+Other measurements:
+
+- **The reference doesn't depend on its OS.** Capturing it on Linux
+  Chromium and on Windows Chromium gave identical PNGs for all 31 views.
+- **A raw-WebGPU probe also matches.** A probe drew P2-6c-0's four raw
+  WebGPU scenes with the same WGSL and pipeline state through wgpu on that
+  driver (Windows):
+  - the scenes were triangles, 4× MSAA, blending, and the shader with
+    transcendental built-ins;
+  - 0 of 65,536 pixels differed from Chromium in each;
+  - so naga's SPIR-V and Tint's gave the same bytes on SwiftShader for
+    these shaders;
+  - the probe was a scratch program, not committed.
+
+Negative checks: each breaks one ported detail, and the test runs again.
+
+| Broken detail | Views identical | Pixels identical |
+| --- | --- | --- |
+| No sRGB-to-linear on the red channel | 0/31 | 0/12,927,040 |
+| WebGL clip space instead of WebGPU's | 28/31 | 12,927,037 |
+| Render list sorted far to near | 26/31 | 12,927,035 |
+| `less` instead of `less-equal` depth | 26/31 | 12,927,035 |
+| fdlibm `sin` and `cos` in `SphereGeometry` | 31/31 (not detected) | all |
+| No back-face culling | 31/31 (not detected) | all |
+
+So the test detects color management, clip space, draw order and depth
+ties at the level of single pixels. It does not detect:
+
+- 1-ulp `f64` differences in sphere vertices, which rounding to `f32`
+  absorbs here;
+- culling. Every mesh is closed, so depth hides back faces.
+
+What this does not show:
+
+- **Presentation.** Nothing reaches the shell's `<canvas>`, which waits for
+  W17's `GPUCanvasContext` (gap 13). three.js renders to a canvas through
+  an output pass, which converts to sRGB. That pass is not ported.
+- **Lights, other materials, textures, transparency and antialiasing.**
+- **Other GPUs.** On a hardware adapter, wgpu's output is not expected to
+  match SwiftShader's.
+
+For W17:
+
+- The fidelity runner's `--disable-gpu` leaves WebGPU with no adapter. The
+  oracle needs per-OS flags (P2-6c-0).
+- Chromium's preferred canvas format is `bgra8unorm` on Windows and
+  `rgba8unorm` on Linux.
+- wgpu, on the SwiftShader driver that ships with the pinned Chrome,
+  reproduces Chromium's WebGPU output byte for byte here. So W17's
+  composition and shader comparisons (design.md §7.3) can be exact, with
+  this CI setup.
+- wgpu 30 needs `wasm-bindgen` 0.2.127 or later. Adding it moved the
+  wasm-only crates in this repository's lock (`wasm-bindgen`, `js-sys`,
+  `web-sys`) from Div's 0.2.117 and 0.3.94. Native builds don't compile
+  them.

@@ -58,7 +58,7 @@ jobs:
             build-essential clang libclang-18-dev libfontconfig1-dev \
             libfreetype-dev libgl1-mesa-dev libwayland-dev libx11-dev \
             libx11-xcb-dev libxcb1-dev libxkbcommon-dev ninja-build \
-            pkg-config python3
+            pkg-config python3 libvulkan1
           {
             echo "LIBCLANG_PATH=/usr/lib/llvm-18/lib"
             echo "CC=clang"
@@ -73,6 +73,36 @@ jobs:
           python -m pip install ninja==1.13.0
           echo 'LIBCLANG_PATH=C:\Program Files\LLVM\bin' >> "$GITHUB_ENV"
           echo "CARGO_TARGET_DIR=${GITHUB_WORKSPACE}\\out\\cargo" >> "$GITHUB_ENV"
+
+      # SwiftShader's Vulkan driver from Chrome for Testing 147.0.7727.50,
+      # pinned by hash: samples/three-render's test renders on it, the
+      # rasterizer of its Chromium oracle (docs/webgpu-oracle.md). Linux
+      # loads it with the system's Vulkan loader (libvulkan1, above), found
+      # through VK_DRIVER_FILES. Windows loads it with Chrome for Testing's
+      # vulkan-1.dll, on PATH. Runner jobs there are elevated, and an
+      # elevated Vulkan loader ignores VK_DRIVER_FILES and VK_ICD_FILENAMES,
+      # so the driver is registered under HKLM, as an installed driver is.
+      - uses: actions/cache@v5
+        with:
+          path: out/swiftshader
+          key: swiftshader-147.0.7727.50-${{ runner.os }}
+
+      - name: Install SwiftShader
+        run: |
+          python -I tools/webgpu-oracle/install_swiftshader.py out/swiftshader >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = Windows ]; then
+            cygpath -w "$PWD/out/swiftshader" >> "$GITHUB_PATH"
+          fi
+
+      - name: Register SwiftShader with the Vulkan loader
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $manifest = Join-Path $PWD 'out\swiftshader\vk_swiftshader_icd.json'
+          $key = 'HKLM:\SOFTWARE\Khronos\Vulkan\Drivers'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name $manifest -Value 0 -PropertyType DWord -Force | Out-Null
+          Get-Item -Path $key | Format-List
 
       # The toolchain comes from rust-toolchain.toml.
       - name: Install Rust
@@ -96,3 +126,7 @@ jobs:
 
       - name: Test
         run: cargo test --locked -- --nocapture --test-threads 1
+        env:
+          # The Vulkan loader's errors and warnings, should the SwiftShader
+          # driver fail to load.
+          VK_LOADER_DEBUG: error,warn
